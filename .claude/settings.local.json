@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-turbopack)",
+      "Bash(npx create-next-app@latest website-enhancer-app --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-turbopack --no-react-compiler)",
+      "Bash(npm install @supabase/supabase-js dotenv axios cheerio node-fetch)",
+      "Bash(npm install --save-dev tsx ts-node)",
+      "Bash(npx shadcn@latest init --defaults)"
+    ]
+  }
+}
