@@ -12,8 +12,7 @@
  */
 
 import 'dotenv/config'
-import puppeteer from 'puppeteer-core'
-import chromium from '@sparticuz/chromium'
+import { launchBrowser } from '@/lib/browser'
 import sgMail from '@sendgrid/mail'
 import { supabaseAdmin } from '@/lib/supabase'
 import { discoverEmail } from './email-discovery'
@@ -116,12 +115,7 @@ export async function runOutreachPipeline(cityInput?: string): Promise<OutreachR
   console.log(`\n  ${pending.length} businesses ready for outreach.\n`)
 
   // Launch browser for email discovery
-  const isLocal = process.env.NODE_ENV === 'development'
-  const browser = await puppeteer.launch({
-    args: isLocal ? ['--no-sandbox', '--disable-setuid-sandbox'] : chromium.args,
-    executablePath: isLocal ? undefined : await chromium.executablePath(),
-    headless: true,
-  })
+  const browser = await launchBrowser()
 
   const results: OutreachResult[] = []
   let emailsSent = 0
