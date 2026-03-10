@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         content_quality_score, ux_score,
         screenshot_before_url, scored_at
       ),
-      rebuilds ( status, live_demo_url, built_at, screenshot_after_url ),
+      rebuilds ( status, live_demo_url, github_repo_url, built_at, screenshot_after_url ),
       outreach (
         id, status, sent_at, opened_at, clicked_at, contact_email,
         email_subject
@@ -31,7 +31,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   // Flatten joined relations (Supabase returns arrays for 1:many even with 1 row)
   const city       = (b.cities as unknown as { name: string; state: string } | null)
   const rawScore   = Array.isArray(b.website_scores)  ? b.website_scores[0]  : b.website_scores
-  const rawRebuild = Array.isArray(b.rebuilds)         ? b.rebuilds[0]        : b.rebuilds
+  const rebuildsArr = Array.isArray(b.rebuilds) ? b.rebuilds : b.rebuilds ? [b.rebuilds] : []
+  const rawRebuild = rebuildsArr.find((r: Record<string, unknown>) => r.status === 'deployed')
+    ?? rebuildsArr.find((r: Record<string, unknown>) => r.live_demo_url)
+    ?? rebuildsArr[0]
+    ?? null
   const rawOutreach = Array.isArray(b.outreach)        ? b.outreach[0]        : b.outreach
 
   // Parse screenshot URL(s) — stored as JSON array string or plain URL
@@ -72,6 +76,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     rebuild: rawRebuild ? {
       status:                rawRebuild.status,
       deployed_url:          rawRebuild.live_demo_url,
+      repo_url:              rawRebuild.github_repo_url,
       deployed_at:           rawRebuild.built_at,
       after_screenshot_urls: parseScreenshots(rawRebuild.screenshot_after_url),
     } : null,

@@ -430,14 +430,19 @@ export default function ProspectDetailPage() {
       )}
 
       {/* Rebuilt Demo */}
-      {rebuild && (rebuild.deployed_url || rebuild.after_screenshot_urls?.length > 0) && (
+      {rebuild && (
         <Card className="border-border/50 border-green-500/20">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Hammer className="w-4 h-4 text-green-400" />
                 <span>Rebuilt Demo</span>
-                <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/20">
+                <Badge variant="outline" className={`text-xs ${
+                  rebuild.status === 'deployed' ? 'bg-green-500/10 text-green-400 border-green-500/20'
+                    : rebuild.status === 'building' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                    : rebuild.status === 'failed' ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                    : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
+                }`}>
                   {rebuild.status}
                 </Badge>
               </div>
@@ -449,7 +454,7 @@ export default function ProspectDetailPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {rebuild.deployed_url && (
+            {rebuild.deployed_url ? (
               <div className="flex gap-2">
                 <a
                   href={rebuild.deployed_url}
@@ -462,6 +467,17 @@ export default function ProspectDetailPage() {
                   View Rebuilt Site
                   <ExternalLink className="w-3.5 h-3.5 opacity-70" />
                 </a>
+              </div>
+            ) : (
+              <div className="p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20 flex items-start gap-2">
+                <Loader2 className={`w-4 h-4 mt-0.5 shrink-0 ${rebuild.status === 'building' ? 'text-yellow-400 animate-spin' : 'text-red-400'}`} />
+                <p className="text-sm text-muted-foreground">
+                  {rebuild.status === 'building'
+                    ? 'Rebuild is in progress. This may take a few minutes — refresh the page to check.'
+                    : rebuild.status === 'failed'
+                    ? 'Rebuild failed. Re-queue this business and try again.'
+                    : `Rebuild status: ${rebuild.status}. No deployed URL available yet.`}
+                </p>
               </div>
             )}
 
