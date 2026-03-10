@@ -5,7 +5,7 @@
  * as context for the AI-powered rebuild.
  */
 
-import type { Browser, Page } from 'puppeteer'
+import type { Browser, Page } from 'puppeteer-core'
 
 export interface ScrapedSite {
   url: string

@@ -14,7 +14,8 @@
  * Uses Puppeteer for headless rendering + Lighthouse for performance.
  */
 
-import puppeteer, { type Browser, type Page } from 'puppeteer'
+import puppeteer, { type Browser, type Page } from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
 
 export interface CategoryScore {
   score: number       // 1-10
@@ -310,14 +311,12 @@ export async function scoreWebsite(
 // ─── Browser lifecycle ────────────────────────────────────────────────────────
 
 export async function launchBrowser(): Promise<Browser> {
+  const isLocal = process.env.NODE_ENV === 'development'
   return puppeteer.launch({
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-web-security',
-      '--remote-debugging-port=9222',
-    ],
+    args: isLocal
+      ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-web-security']
+      : chromium.args,
+    executablePath: isLocal ? undefined : await chromium.executablePath(),
+    headless: isLocal ? true : chromium.headless,
   })
 }

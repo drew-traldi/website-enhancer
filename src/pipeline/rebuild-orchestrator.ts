@@ -10,7 +10,8 @@
  */
 
 import 'dotenv/config'
-import puppeteer from 'puppeteer'
+import puppeteer from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
 import { supabaseAdmin } from '@/lib/supabase'
 import { scrapeWebsite } from './scraper'
 import { buildSite }     from './builder'
@@ -62,9 +63,13 @@ export async function runRebuildPipeline(maxCount: number = 15): Promise<Rebuild
   console.log(`\n  ${typed.length} businesses queued for rebuild.\n`)
 
   // ── Launch browser ─────────────────────────────────────────────────────────
+  const isLocal = process.env.NODE_ENV === 'development'
   const browser = await puppeteer.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: isLocal ? ['--no-sandbox', '--disable-setuid-sandbox'] : chromium.args,
+    executablePath: isLocal
+      ? undefined
+      : await chromium.executablePath(),
+    headless: isLocal ? true : chromium.headless,
   })
 
   const results: RebuildResult[] = []

@@ -10,7 +10,7 @@
  * Returns an array of 1-3 public URLs.
  */
 
-import type { Page } from 'puppeteer'
+import type { Page } from 'puppeteer-core'
 import { supabaseAdmin } from '@/lib/supabase'
 
 const BUCKET = 'screenshots'

@@ -8,7 +8,7 @@
  *   4. Try common patterns (info@, contact@, hello@)
  */
 
-import type { Page } from 'puppeteer'
+import type { Page } from 'puppeteer-core'
 
 export interface EmailDiscoveryResult {
   email: string | null
