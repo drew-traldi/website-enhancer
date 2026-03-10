@@ -59,8 +59,12 @@ export async function runRebuildPipeline(maxCount: number = 15): Promise<Rebuild
     return []
   }
 
-  const typed = businesses as unknown as QueuedBusiness[]
-  console.log(`\n  ${typed.length} businesses queued for rebuild.\n`)
+  const typed = (businesses as unknown as QueuedBusiness[]).sort((a, b) => {
+    const scoreA = a.website_scores?.[0]?.overall_score ?? 10
+    const scoreB = b.website_scores?.[0]?.overall_score ?? 10
+    return scoreA - scoreB
+  })
+  console.log(`\n  ${typed.length} businesses queued for rebuild (lowest scores first).\n`)
 
   // ── Launch browser ─────────────────────────────────────────────────────────
   const isLocal = process.env.NODE_ENV === 'development'
