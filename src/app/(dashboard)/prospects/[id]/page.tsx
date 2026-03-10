@@ -429,53 +429,86 @@ export default function ProspectDetailPage() {
         </Card>
       )}
 
-      {/* After screenshots (rebuilt demo) */}
-      {rebuild && rebuild.after_screenshot_urls?.length > 0 && (
+      {/* Rebuilt Demo */}
+      {rebuild && (rebuild.deployed_url || rebuild.after_screenshot_urls?.length > 0) && (
         <Card className="border-border/50 border-green-500/20">
-          <CardHeader
-            className="pb-3 cursor-pointer"
-            onClick={() => setShowAfter(p => !p)}
-          >
+          <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Hammer className="w-4 h-4 text-green-400" />
                 <span>Rebuilt Demo</span>
-                {rebuild.deployed_url && (
-                  <a
-                    href={rebuild.deployed_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={e => e.stopPropagation()}
-                    className="text-xs text-green-400 hover:underline flex items-center gap-1"
-                  >
-                    Live <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
+                <Badge variant="outline" className="text-xs bg-green-500/10 text-green-400 border-green-500/20">
+                  {rebuild.status}
+                </Badge>
               </div>
-              {showAfter ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
+              {rebuild.deployed_at && (
+                <span className="text-xs text-muted-foreground">
+                  Built {new Date(rebuild.deployed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              )}
             </CardTitle>
           </CardHeader>
-          {showAfter && (
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {rebuild.after_screenshot_urls.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="group">
-                    <div className="rounded-lg overflow-hidden border border-green-500/20 aspect-video bg-muted">
-                      <img
-                        src={url}
-                        alt={`After screenshot ${i + 1}`}
-                        className="w-full h-full object-cover object-top group-hover:opacity-90 transition-opacity"
-                        loading="lazy"
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1 text-center">
-                      {['Top', 'Mid', 'Footer'][i] ?? `Shot ${i + 1}`}
-                    </p>
-                  </a>
-                ))}
+          <CardContent className="space-y-4">
+            {rebuild.deployed_url && (
+              <div className="flex gap-2">
+                <a
+                  href={rebuild.deployed_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg, #5D3FA3, #3BC9B5)' }}
+                >
+                  <Globe className="w-4 h-4" />
+                  View Rebuilt Site
+                  <ExternalLink className="w-3.5 h-3.5 opacity-70" />
+                </a>
               </div>
-            </CardContent>
-          )}
+            )}
+
+            {rebuild.deployed_url && (
+              <div className="rounded-lg overflow-hidden border border-green-500/20 bg-muted">
+                <iframe
+                  src={rebuild.deployed_url}
+                  title="Rebuilt site preview"
+                  className="w-full border-0"
+                  style={{ height: '500px' }}
+                  loading="lazy"
+                  sandbox="allow-scripts allow-same-origin"
+                />
+              </div>
+            )}
+
+            {rebuild.after_screenshot_urls?.length > 0 && (
+              <div>
+                <button
+                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-3"
+                  onClick={() => setShowAfter(p => !p)}
+                >
+                  After Screenshots
+                  {showAfter ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+                {showAfter && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {rebuild.after_screenshot_urls.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="group">
+                        <div className="rounded-lg overflow-hidden border border-green-500/20 aspect-video bg-muted">
+                          <img
+                            src={url}
+                            alt={`After screenshot ${i + 1}`}
+                            className="w-full h-full object-cover object-top group-hover:opacity-90 transition-opacity"
+                            loading="lazy"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 text-center">
+                          {['Top', 'Mid', 'Footer'][i] ?? `Shot ${i + 1}`}
+                        </p>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
         </Card>
       )}
 
