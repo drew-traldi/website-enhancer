@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-space-grotesk), var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -45,75 +45,82 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* HAI Brand Colors */
+  --color-hai-navy: #1E2A3A;
+  --color-hai-purple: #5D3FA3;
+  --color-hai-purple-light: #7A4EB8;
+  --color-hai-teal: #3BC9B5;
+  --color-hai-lavender: #C7A8E4;
 }
 
 :root {
   --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --foreground: #1E2A3A;
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: #1E2A3A;
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  --popover-foreground: #1E2A3A;
+  --primary: #5D3FA3;
+  --primary-foreground: #FFFFFF;
   --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  --secondary-foreground: #1E2A3A;
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: #3BC9B5;
+  --accent-foreground: #1E2A3A;
   --destructive: oklch(0.58 0.22 27);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
+  --ring: #7A4EB8;
+  --chart-1: #5D3FA3;
+  --chart-2: #7A4EB8;
+  --chart-3: #3BC9B5;
+  --chart-4: #C7A8E4;
+  --chart-5: #1E2A3A;
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-foreground: #1E2A3A;
+  --sidebar-primary: #5D3FA3;
+  --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-accent-foreground: #1E2A3A;
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-ring: #7A4EB8;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.87 0.00 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: #1E2A3A;
+  --foreground: #FFFFFF;
+  --card: #243347;
+  --card-foreground: #FFFFFF;
+  --popover: #243347;
+  --popover-foreground: #FFFFFF;
+  --primary: #7A4EB8;
+  --primary-foreground: #FFFFFF;
+  --secondary: #2D3F54;
+  --secondary-foreground: #FFFFFF;
+  --muted: #2D3F54;
+  --muted-foreground: #A0B0C4;
+  --accent: #3BC9B5;
+  --accent-foreground: #1E2A3A;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #5D3FA3;
+  --chart-1: #7A4EB8;
+  --chart-2: #5D3FA3;
+  --chart-3: #3BC9B5;
+  --chart-4: #C7A8E4;
+  --chart-5: #4A90D9;
+  --sidebar: #162030;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #7A4EB8;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1E2A3A;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #5D3FA3;
 }
 
 @layer base {
@@ -126,4 +133,55 @@
   html {
     @apply font-sans;
   }
+}
+
+/* HAI Brand Animations */
+@keyframes hai-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.02); }
+}
+
+@keyframes hai-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes hai-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes hai-gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes hai-spin-slow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.hai-gradient-bg {
+  background: linear-gradient(135deg, #1E2A3A 0%, #5D3FA3 50%, #1E2A3A 100%);
+}
+
+.hai-accent-gradient {
+  background: linear-gradient(135deg, #5D3FA3, #7A4EB8, #3BC9B5);
+}
+
+.hai-text-shimmer {
+  background: linear-gradient(135deg, #ffffff 0%, #3BC9B5 50%, #ffffff 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: hai-shimmer 3s ease-in-out infinite;
+}
+
+.hai-float {
+  animation: hai-float 3s ease-in-out infinite;
+}
+
+.hai-gradient-animate {
+  background-size: 200% 200%;
+  animation: hai-gradient-shift 4s ease-in-out infinite;
 }

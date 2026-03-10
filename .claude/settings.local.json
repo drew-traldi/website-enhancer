@@ -7,7 +7,23 @@
       "Bash(npx create-next-app@latest website-enhancer-app --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --no-turbopack --no-react-compiler)",
       "Bash(npm install @supabase/supabase-js dotenv axios cheerio node-fetch)",
       "Bash(npm install --save-dev tsx ts-node)",
-      "Bash(npx shadcn@latest init --defaults)"
+      "Bash(npx shadcn@latest init --defaults)",
+      "Bash(npm run setup:db)",
+      "Bash(npm run seed:executives)",
+      "Bash(npm install pg @types/pg)",
+      "Bash(npm run db:migrate)",
+      "Bash(npm run discover -- --city \"Roswell, GA\")",
+      "Bash(npm install puppeteer lighthouse)",
+      "Bash(npm run setup:storage)",
+      "Bash(npm run patch-schema)",
+      "Bash(npx tsx --env-file=.env.local scripts/patch-schema.ts)",
+      "Bash(npm run score -- --city \"Roswell, GA\")",
+      "Bash(npx shadcn@latest add badge card table tabs select separator input label textarea dialog alert-dialog progress)",
+      "Bash(npx shadcn@latest add dropdown-menu sheet tooltip)",
+      "Bash(npm install recharts js-cookie)",
+      "Bash(npm install --save-dev @types/js-cookie)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(node node_modules/typescript/lib/tsc.js --noEmit)"
     ]
   }
 }
