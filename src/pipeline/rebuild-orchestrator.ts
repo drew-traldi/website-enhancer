@@ -69,7 +69,7 @@ export async function runRebuildPipeline(maxCount: number = 15): Promise<Rebuild
     executablePath: isLocal
       ? undefined
       : await chromium.executablePath(),
-    headless: isLocal ? true : chromium.headless,
+    headless: true,
   })
 
   const results: RebuildResult[] = []

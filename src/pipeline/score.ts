@@ -317,6 +317,6 @@ export async function launchBrowser(): Promise<Browser> {
       ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-web-security']
       : chromium.args,
     executablePath: isLocal ? undefined : await chromium.executablePath(),
-    headless: isLocal ? true : chromium.headless,
+    headless: true,
   })
 }

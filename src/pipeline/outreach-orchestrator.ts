@@ -120,7 +120,7 @@ export async function runOutreachPipeline(cityInput?: string): Promise<OutreachR
   const browser = await puppeteer.launch({
     args: isLocal ? ['--no-sandbox', '--disable-setuid-sandbox'] : chromium.args,
     executablePath: isLocal ? undefined : await chromium.executablePath(),
-    headless: isLocal ? true : chromium.headless,
+    headless: true,
   })
 
   const results: OutreachResult[] = []
