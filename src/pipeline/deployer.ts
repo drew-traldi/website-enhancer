@@ -117,6 +117,54 @@ export async function deployToGitHubPages(
 }
 
 /**
+ * Enable GitHub Pages on an existing repo (no delete, no push).
+ * Use when the repo already exists (e.g. from a previous deploy that timed out
+ * before DB update). Returns the same DeployResult shape with live URLs.
+ */
+export async function enablePagesOnExistingRepo(slug: string): Promise<DeployResult> {
+  const org = process.env.GITHUB_ORG ?? 'haiconsulting'
+
+  const result: DeployResult = {
+    repoUrl:  `https://github.com/${org}/${slug}`,
+    pagesUrl: `https://${org}.github.io/${slug}/`,
+    deployed: false,
+    error:    null,
+  }
+
+  try {
+    const checkRes = await fetch(`${GITHUB_API}/repos/${org}/${slug}`, {
+      headers: headers(),
+    })
+    if (!checkRes.ok) {
+      if (checkRes.status === 404) {
+        throw new Error(`Repo not found: ${org}/${slug}`)
+      }
+      const body = await checkRes.json()
+      throw new Error(`Repo check failed: ${checkRes.status} — ${body.message}`)
+    }
+
+    const pagesRes = await fetch(`${GITHUB_API}/repos/${org}/${slug}/pages`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({
+        source: { branch: 'main', path: '/' },
+      }),
+    })
+
+    if (!pagesRes.ok && pagesRes.status !== 409) {
+      const body = await pagesRes.json()
+      throw new Error(`Enable Pages failed: ${pagesRes.status} — ${body.message}`)
+    }
+    result.deployed = true
+  } catch (err) {
+    result.error   = (err as Error).message
+    result.deployed = false
+  }
+
+  return result
+}
+
+/**
  * Wait for GitHub Pages to become available (polls up to maxWaitMs).
  */
 export async function waitForPages(

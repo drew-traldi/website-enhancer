@@ -273,6 +273,9 @@ export default function ProspectDetailPage() {
   const [showAfter, setShowAfter] = useState(true)
   const [rebuilding, setRebuilding] = useState(false)
   const [rebuildError, setRebuildError] = useState<string | null>(null)
+  const [linkSlug, setLinkSlug] = useState('')
+  const [linking, setLinking] = useState(false)
+  const [linkError, setLinkError] = useState<string | null>(null)
 
   const triggerRebuild = async () => {
     setRebuilding(true)
@@ -296,6 +299,32 @@ export default function ProspectDetailPage() {
       setRebuildError('Network error — rebuild may still be running')
     } finally {
       setRebuilding(false)
+    }
+  }
+
+  const triggerLinkRepo = async () => {
+    const slug = linkSlug.trim()
+    if (!slug) return
+    setLinking(true)
+    setLinkError(null)
+    try {
+      const res = await fetch(`/api/businesses/${id}/enable-demo-pages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug }),
+      })
+      const data = await res.json()
+      if (data.ok && data.pagesUrl) {
+        const updated = await fetch(`/api/businesses/${id}`).then(r => r.json())
+        setBiz(updated)
+        setLinkSlug('')
+      } else {
+        setLinkError(data.error ?? 'Failed to enable GitHub Pages')
+      }
+    } catch {
+      setLinkError('Network error')
+    } finally {
+      setLinking(false)
     }
   }
 
@@ -507,23 +536,50 @@ export default function ProspectDetailPage() {
                   </div>
                 )}
                 {(!rebuild || rebuild.status === 'queued' || rebuild.status === 'failed') && !rebuilding && (
-                  <div className="p-3 rounded-lg bg-zinc-500/5 border border-zinc-500/20 flex items-center justify-between gap-3">
-                    <p className="text-sm text-muted-foreground">
-                      {rebuild?.status === 'failed'
-                        ? 'Previous rebuild failed. Ready to retry.'
-                        : 'No deployed demo yet. Generate and publish the rebuilt site to GitHub Pages.'}
-                    </p>
-                    <Button
-                      size="sm"
-                      onClick={triggerRebuild}
-                      disabled={rebuilding}
-                      className="shrink-0"
-                      style={{ background: 'linear-gradient(135deg, #5D3FA3, #3BC9B5)' }}
-                    >
-                      <Hammer className="w-3.5 h-3.5 mr-1.5" />
-                      {rebuild?.status === 'failed' ? 'Retry Rebuild' : 'Rebuild Now'}
-                    </Button>
-                  </div>
+                  <>
+                    <div className="p-3 rounded-lg bg-zinc-500/5 border border-zinc-500/20 flex items-center justify-between gap-3">
+                      <p className="text-sm text-muted-foreground">
+                        {rebuild?.status === 'failed'
+                          ? 'Previous rebuild failed. Ready to retry.'
+                          : 'No deployed demo yet. Generate and publish the rebuilt site to GitHub Pages.'}
+                      </p>
+                      <Button
+                        size="sm"
+                        onClick={triggerRebuild}
+                        disabled={rebuilding}
+                        className="shrink-0"
+                        style={{ background: 'linear-gradient(135deg, #5D3FA3, #3BC9B5)' }}
+                      >
+                        <Hammer className="w-3.5 h-3.5 mr-1.5" />
+                        {rebuild?.status === 'failed' ? 'Retry Rebuild' : 'Rebuild Now'}
+                      </Button>
+                    </div>
+                    <div className="p-3 rounded-lg bg-muted/30 border border-border/50 space-y-2">
+                      <p className="text-xs text-muted-foreground">
+                        Already have a repo on GitHub? Enable Pages and link it here.
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Input
+                          placeholder="hai-demo-business-name-roswell"
+                          value={linkSlug}
+                          onChange={e => { setLinkSlug(e.target.value); setLinkError(null) }}
+                          className="max-w-xs h-8 text-sm font-mono"
+                        />
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={triggerLinkRepo}
+                          disabled={linking || !linkSlug.trim()}
+                        >
+                          {linking ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : null}
+                          Enable Pages & link
+                        </Button>
+                      </div>
+                      {linkError && (
+                        <p className="text-xs text-red-400">{linkError}</p>
+                      )}
+                    </div>
+                  </>
                 )}
                 {rebuilding && (
                   <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20 flex items-center gap-3">
