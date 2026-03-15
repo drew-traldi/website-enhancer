@@ -271,6 +271,33 @@ export default function ProspectDetailPage() {
   const [saving, setSaving] = useState(false)
   const [showBefore, setShowBefore] = useState(true)
   const [showAfter, setShowAfter] = useState(true)
+  const [rebuilding, setRebuilding] = useState(false)
+  const [rebuildError, setRebuildError] = useState<string | null>(null)
+
+  const triggerRebuild = async () => {
+    setRebuilding(true)
+    setRebuildError(null)
+    try {
+      const res = await fetch(`/api/businesses/${id}/rebuild`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ executiveNotes: notes || undefined }),
+      })
+      const data = await res.json()
+      if (data.ok && data.pagesUrl) {
+        // Refresh business data to show deployed URL
+        const updated = await fetch(`/api/businesses/${id}`).then(r => r.json())
+        setBiz(updated)
+        setNotes(updated.notes ?? '')
+      } else {
+        setRebuildError(data.error ?? 'Rebuild failed')
+      }
+    } catch {
+      setRebuildError('Network error — rebuild may still be running')
+    } finally {
+      setRebuilding(false)
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/businesses/${id}`)
@@ -430,31 +457,32 @@ export default function ProspectDetailPage() {
       )}
 
       {/* Rebuilt Demo */}
-      {rebuild && (
-        <Card className="border-border/50 border-green-500/20">
-          <CardHeader className="pb-3">
+      <Card className="border-border/50 border-green-500/20">
+        <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Hammer className="w-4 h-4 text-green-400" />
                 <span>Rebuilt Demo</span>
-                <Badge variant="outline" className={`text-xs ${
-                  rebuild.status === 'deployed' ? 'bg-green-500/10 text-green-400 border-green-500/20'
-                    : rebuild.status === 'building' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                    : rebuild.status === 'failed' ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                    : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
-                }`}>
-                  {rebuild.status}
-                </Badge>
+                {rebuild && (
+                  <Badge variant="outline" className={`text-xs ${
+                    rebuild.status === 'deployed' ? 'bg-green-500/10 text-green-400 border-green-500/20'
+                      : rebuild.status === 'building' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                      : rebuild.status === 'failed' ? 'bg-red-500/10 text-red-400 border-red-500/20'
+                      : 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
+                  }`}>
+                    {rebuild.status}
+                  </Badge>
+                )}
               </div>
-              {rebuild.deployed_at && (
+              {rebuild?.deployed_at && (
                 <span className="text-xs text-muted-foreground">
                   Built {new Date(rebuild.deployed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
               )}
             </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {rebuild.deployed_url ? (
+        </CardHeader>
+        <CardContent className="space-y-4">
+            {rebuild?.deployed_url ? (
               <div className="flex gap-2">
                 <a
                   href={rebuild.deployed_url}
@@ -469,19 +497,55 @@ export default function ProspectDetailPage() {
                 </a>
               </div>
             ) : (
-              <div className="p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20 flex items-start gap-2">
-                <Loader2 className={`w-4 h-4 mt-0.5 shrink-0 ${rebuild.status === 'building' ? 'text-yellow-400 animate-spin' : 'text-red-400'}`} />
-                <p className="text-sm text-muted-foreground">
-                  {rebuild.status === 'building'
-                    ? 'Rebuild is in progress. This may take a few minutes — refresh the page to check.'
-                    : rebuild.status === 'failed'
-                    ? 'Rebuild failed. Re-queue this business and try again.'
-                    : `Rebuild status: ${rebuild.status}. No deployed URL available yet.`}
-                </p>
+              <div className="space-y-3">
+                {rebuild && rebuild.status === 'building' && (
+                  <div className="p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20 flex items-start gap-2">
+                    <Loader2 className="w-4 h-4 mt-0.5 shrink-0 text-yellow-400 animate-spin" />
+                    <p className="text-sm text-muted-foreground">
+                      Rebuild in progress. This may take a few minutes — refresh to check.
+                    </p>
+                  </div>
+                )}
+                {(!rebuild || rebuild.status === 'queued' || rebuild.status === 'failed') && !rebuilding && (
+                  <div className="p-3 rounded-lg bg-zinc-500/5 border border-zinc-500/20 flex items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      {rebuild?.status === 'failed'
+                        ? 'Previous rebuild failed. Ready to retry.'
+                        : 'No deployed demo yet. Generate and publish the rebuilt site to GitHub Pages.'}
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={triggerRebuild}
+                      disabled={rebuilding}
+                      className="shrink-0"
+                      style={{ background: 'linear-gradient(135deg, #5D3FA3, #3BC9B5)' }}
+                    >
+                      <Hammer className="w-3.5 h-3.5 mr-1.5" />
+                      {rebuild?.status === 'failed' ? 'Retry Rebuild' : 'Rebuild Now'}
+                    </Button>
+                  </div>
+                )}
+                {rebuilding && (
+                  <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20 flex items-center gap-3">
+                    <Loader2 className="w-4 h-4 shrink-0 text-purple-400 animate-spin" />
+                    <div>
+                      <p className="text-sm font-medium text-purple-300">Rebuild running…</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Scraping site, generating AI demo, deploying to GitHub Pages. This takes 1–3 minutes.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {rebuildError && (
+                  <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0 text-red-400" />
+                    <p className="text-sm text-red-400">{rebuildError}</p>
+                  </div>
+                )}
               </div>
             )}
 
-            {rebuild.deployed_url && (
+            {rebuild?.deployed_url && (
               <div className="rounded-lg overflow-hidden border border-green-500/20 bg-muted">
                 <iframe
                   src={rebuild.deployed_url}
@@ -494,7 +558,7 @@ export default function ProspectDetailPage() {
               </div>
             )}
 
-            {rebuild.after_screenshot_urls?.length > 0 && (
+            {(rebuild?.after_screenshot_urls?.length ?? 0) > 0 && (
               <div>
                 <button
                   className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-3"
@@ -505,7 +569,7 @@ export default function ProspectDetailPage() {
                 </button>
                 {showAfter && (
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {rebuild.after_screenshot_urls.map((url, i) => (
+                    {rebuild!.after_screenshot_urls.map((url, i) => (
                       <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="group">
                         <div className="rounded-lg overflow-hidden border border-green-500/20 aspect-video bg-muted">
                           <img
@@ -524,9 +588,8 @@ export default function ProspectDetailPage() {
                 )}
               </div>
             )}
-          </CardContent>
-        </Card>
-      )}
+        </CardContent>
+      </Card>
 
       {/* Outreach section */}
       <OutreachSection biz={biz} onUpdate={() => {

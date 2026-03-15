@@ -22,6 +22,7 @@ interface QueuedBusiness {
   name: string
   website: string | null
   city_id: string
+  notes: string | null
   cities: { name: string; state: string } | null
   rebuilds: Array<{ id: string }>
   website_scores: Array<{ overall_score: number | null }>
@@ -35,22 +36,25 @@ export interface RebuildResult {
   error:       string | null
 }
 
-export async function runRebuildPipeline(maxCount: number = 15): Promise<RebuildResult[]> {
+export async function runRebuildPipeline(maxCount: number = 15, targetBusinessId?: string): Promise<RebuildResult[]> {
   console.log(`\n${'='.repeat(60)}`)
   console.log(`  Website Enhancer — Rebuild Pipeline`)
   console.log(`${'='.repeat(60)}`)
 
   // ── Load queued businesses ─────────────────────────────────────────────────
-  const { data: businesses, error: loadErr } = await supabaseAdmin
+  const baseQuery = supabaseAdmin
     .from('businesses')
     .select(`
-      id, name, website, city_id,
+      id, name, website, city_id, notes,
       cities ( name, state ),
       rebuilds ( id ),
       website_scores ( overall_score )
     `)
     .eq('status', 'queued_for_rebuild')
-    .limit(maxCount)
+
+  const { data: businesses, error: loadErr } = targetBusinessId
+    ? await baseQuery.eq('id', targetBusinessId)
+    : await baseQuery.limit(maxCount)
 
   if (loadErr) throw new Error(`Failed to load queued businesses: ${loadErr.message}`)
   if (!businesses?.length) {
@@ -131,7 +135,8 @@ export async function runRebuildPipeline(maxCount: number = 15): Promise<Rebuild
         cityName,
         cityState,
         score,
-        slug
+        slug,
+        biz.notes ?? undefined
       )
       console.log(`  ✓ HTML generated (${Math.round(buildResult.html.length / 1024)}KB)`)
 

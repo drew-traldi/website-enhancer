@@ -27,10 +27,11 @@ export async function buildSite(
   city: string,
   state: string,
   originalScore: number,
-  slug: string
+  slug: string,
+  executiveNotes?: string
 ): Promise<BuildResult> {
 
-  const brief = buildBrief(scraped, businessName, city, state, originalScore)
+  const brief = buildBrief(scraped, businessName, city, state, originalScore, executiveNotes)
 
   console.log(`  [builder] Calling Claude for ${businessName}…`)
 
@@ -70,7 +71,8 @@ function buildBrief(
   businessName: string,
   city: string,
   state: string,
-  originalScore: number
+  originalScore: number,
+  executiveNotes?: string
 ): string {
 
   const services = scraped.services.length
@@ -145,5 +147,10 @@ Include this watermark badge in the bottom-right corner of the page, ALWAYS:
 - Contact form submissions should link to the same URL (no backend needed)
 
 ## Output Format
-Return ONLY the complete HTML document starting with \`<!DOCTYPE html>\`. No explanations, no markdown fences, just pure HTML.`
+Return ONLY the complete HTML document starting with \`<!DOCTYPE html>\`. No explanations, no markdown fences, just pure HTML.
+${executiveNotes ? `
+## Additional Context from HAI Executive
+${executiveNotes}
+
+Use this context to guide emphasis, tone, and any personal touches in the design. This is the HAI executive's perspective on what this business needs.` : ''}`
 }

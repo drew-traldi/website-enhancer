@@ -23,7 +23,10 @@
       "Bash(npm install recharts js-cookie)",
       "Bash(npm install --save-dev @types/js-cookie)",
       "Bash(npx tsc --noEmit)",
-      "Bash(node node_modules/typescript/lib/tsc.js --noEmit)"
+      "Bash(node node_modules/typescript/lib/tsc.js --noEmit)",
+      "Bash(ls /Users/haisolutions/Desktop/HAI/Clients/website-enhancer/src/app/api/businesses/[id]/rebuild/)",
+      "Bash(ls /Users/haisolutions/Desktop/HAI/Clients/website-enhancer/src/app/api/businesses/[id]/haig-summary/)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
