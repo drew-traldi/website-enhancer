@@ -560,10 +560,10 @@ export default function ProspectDetailPage() {
                       </p>
                       <div className="flex flex-wrap items-center gap-2">
                         <Input
-                          placeholder="hai-demo-business-name-roswell"
+                          placeholder="Repo name or full GitHub URL"
                           value={linkSlug}
                           onChange={e => { setLinkSlug(e.target.value); setLinkError(null) }}
-                          className="max-w-xs h-8 text-sm font-mono"
+                          className="max-w-md h-8 text-sm font-mono"
                         />
                         <Button
                           size="sm"

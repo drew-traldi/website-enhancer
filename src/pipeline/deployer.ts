@@ -117,33 +117,50 @@ export async function deployToGitHubPages(
 }
 
 /**
+ * Parse slug or full GitHub URL into owner and repo name.
+ * - "hai-demo-vincent-dental-roswell" → { owner: GITHUB_ORG, repo: "hai-demo-vincent-dental-roswell" }
+ * - "https://github.com/haiconsulting/hai-demo-vincent-dental-roswell" → { owner: "haiconsulting", repo: "hai-demo-vincent-dental-roswell" }
+ */
+export function parseRepoSlugOrUrl(slugOrUrl: string): { owner: string; repo: string } {
+  const trimmed = slugOrUrl.trim()
+  const urlMatch = trimmed.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\/.*)?$/i)
+  if (urlMatch) {
+    return { owner: urlMatch[1], repo: urlMatch[2].replace(/\.git$/, '') }
+  }
+  const org = process.env.GITHUB_ORG ?? 'haiconsulting'
+  return { owner: org, repo: trimmed }
+}
+
+/**
  * Enable GitHub Pages on an existing repo (no delete, no push).
  * Use when the repo already exists (e.g. from a previous deploy that timed out
  * before DB update). Returns the same DeployResult shape with live URLs.
+ * Accepts either a repo name (e.g. "hai-demo-vincent-dental-roswell") or a full
+ * GitHub URL; if URL, the owner is taken from the URL (so personal vs org both work).
  */
-export async function enablePagesOnExistingRepo(slug: string): Promise<DeployResult> {
-  const org = process.env.GITHUB_ORG ?? 'haiconsulting'
+export async function enablePagesOnExistingRepo(slugOrUrl: string): Promise<DeployResult> {
+  const { owner, repo } = parseRepoSlugOrUrl(slugOrUrl)
 
   const result: DeployResult = {
-    repoUrl:  `https://github.com/${org}/${slug}`,
-    pagesUrl: `https://${org}.github.io/${slug}/`,
+    repoUrl:  `https://github.com/${owner}/${repo}`,
+    pagesUrl: `https://${owner}.github.io/${repo}/`,
     deployed: false,
     error:    null,
   }
 
   try {
-    const checkRes = await fetch(`${GITHUB_API}/repos/${org}/${slug}`, {
+    const checkRes = await fetch(`${GITHUB_API}/repos/${owner}/${repo}`, {
       headers: headers(),
     })
     if (!checkRes.ok) {
       if (checkRes.status === 404) {
-        throw new Error(`Repo not found: ${org}/${slug}`)
+        throw new Error(`Repo not found: ${owner}/${repo}. Check that GITHUB_PAT has access to this repo and that the owner (${owner}) is correct.`)
       }
       const body = await checkRes.json()
       throw new Error(`Repo check failed: ${checkRes.status} — ${body.message}`)
     }
 
-    const pagesRes = await fetch(`${GITHUB_API}/repos/${org}/${slug}/pages`, {
+    const pagesRes = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/pages`, {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify({
