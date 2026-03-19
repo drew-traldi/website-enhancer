@@ -17,6 +17,7 @@ import sgMail from '@sendgrid/mail'
 import { supabaseAdmin } from '@/lib/supabase'
 import { discoverEmail } from './email-discovery'
 import { buildEmail } from './email-builder'
+import { pickBestRebuild, parseAfterScreenshotUrl } from '@/lib/rebuild-utils'
 
 export interface OutreachResult {
   businessId: string
@@ -42,7 +43,19 @@ interface RebuiltBusiness {
   website: string | null
   city_id: string
   cities: { name: string; state: string } | null
-  website_scores: Array<{ overall_score: number | null; screenshot_before_url: string | null }>
+  website_scores: Array<{
+    overall_score: number | null
+    screenshot_before_url: string | null
+    details: Record<string, unknown> | null
+    responsive_score: number | null
+    visual_era_score: number | null
+    performance_score: number | null
+    security_score: number | null
+    accessibility_score: number | null
+    tech_stack_score: number | null
+    content_quality_score: number | null
+    ux_score: number | null
+  }>
   rebuilds: Array<{ id: string; live_demo_url: string | null; screenshot_after_url: string | null }>
   outreach: Array<{ id: string }>
 }
@@ -73,8 +86,13 @@ export async function runOutreachPipeline(cityInput?: string): Promise<OutreachR
     .select(`
       id, name, website, city_id,
       cities ( name, state ),
-      website_scores ( overall_score, screenshot_before_url ),
-      rebuilds ( id, live_demo_url, screenshot_after_url ),
+      website_scores (
+        overall_score, screenshot_before_url, details,
+        responsive_score, visual_era_score, performance_score,
+        security_score, accessibility_score, tech_stack_score,
+        content_quality_score, ux_score
+      ),
+      rebuilds ( id, live_demo_url, screenshot_after_url, status ),
       outreach ( id )
     `)
     .eq('status', 'rebuilt')
@@ -127,8 +145,15 @@ export async function runOutreachPipeline(cityInput?: string): Promise<OutreachR
     const cityObj = biz.cities as { name: string; state: string } | null
     const cityName = cityObj?.name ?? ''
     const cityState = cityObj?.state ?? ''
-    const rebuild = biz.rebuilds?.[0]
+    const rebuild = pickBestRebuild(biz.rebuilds) as
+      | { id: string; live_demo_url: string | null; screenshot_after_url: string | null }
+      | null
     const score = biz.website_scores?.[0]
+    const scoreDetailsJson = score?.details ?? null
+    const storedNarrative =
+      scoreDetailsJson && typeof scoreDetailsJson.narrative_summary === 'string'
+        ? scoreDetailsJson.narrative_summary
+        : null
 
     // Round-robin executive assignment
     const exec = executives[i % executives.length]
@@ -193,7 +218,21 @@ export async function runOutreachPipeline(cityInput?: string): Promise<OutreachR
         executiveName: exec.full_name,
         executiveEmail: exec.email,
         beforeScreenshotUrl: score?.screenshot_before_url ?? null,
-        afterScreenshotUrl: parseScreenshotUrl(rebuild.screenshot_after_url),
+        afterScreenshotUrl: parseAfterScreenshotUrl(rebuild.screenshot_after_url),
+        storedNarrativeSummary: storedNarrative,
+        scoreDetails: score
+          ? {
+              responsive_score: score.responsive_score ?? 5,
+              visual_era_score: score.visual_era_score ?? 5,
+              performance_score: score.performance_score ?? 5,
+              security_score: score.security_score ?? 5,
+              accessibility_score: score.accessibility_score ?? 5,
+              tech_stack_score: score.tech_stack_score ?? 5,
+              content_quality_score: score.content_quality_score ?? 5,
+              ux_score: score.ux_score ?? 5,
+              overall_score: score.overall_score ?? 5,
+            }
+          : undefined,
       })
 
       // Step 3: Send via SendGrid
@@ -207,6 +246,7 @@ export async function runOutreachPipeline(cityInput?: string): Promise<OutreachR
           subject: emailContent.subject,
           text: emailContent.textBody,
           html: emailContent.htmlBody,
+          attachments: emailContent.attachments,
           trackingSettings: {
             clickTracking: { enable: true, enableText: false },
             openTracking: { enable: true },
@@ -301,12 +341,3 @@ async function markManual(businessId: string, rebuildId: string | undefined, exe
   } as Record<string, unknown>)
 }
 
-function parseScreenshotUrl(url: string | null): string | null {
-  if (!url) return null
-  try {
-    const parsed = JSON.parse(url)
-    return Array.isArray(parsed) ? parsed[0] : url
-  } catch {
-    return url
-  }
-}

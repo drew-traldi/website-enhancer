@@ -16,10 +16,20 @@ import * as path from 'path'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+export interface EmailInlineAttachment {
+  content: string
+  filename: string
+  type: string
+  disposition: 'inline'
+  content_id: string
+}
+
 export interface EmailContent {
   subject:  string
   htmlBody: string
   textBody: string
+  /** SendGrid inline images (CID) so Gmail/Outlook show before/after screenshots reliably */
+  attachments?: EmailInlineAttachment[]
 }
 
 interface ScoreDetails {
@@ -45,6 +55,8 @@ export interface EmailContext {
   beforeScreenshotUrl: string | null
   afterScreenshotUrl:  string | null
   scoreDetails?:       ScoreDetails
+  /** When set (from website_scores.details), used as the opening narrative instead of a fresh AI paragraph */
+  storedNarrativeSummary?: string | null
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -52,18 +64,23 @@ export interface EmailContext {
 // ─────────────────────────────────────────────────────────────────
 
 export async function buildEmail(ctx: EmailContext): Promise<EmailContent> {
-  // Run AI tasks in parallel
+  const stored = ctx.storedNarrativeSummary?.trim()
+  // Run AI tasks in parallel (skip narrative generation if we already have a stored audit narrative)
   const [subject, ownerName, modernityNarrative] = await Promise.all([
     generateSubjectLine(ctx),
     researchOwner(ctx.businessName, ctx.city, ctx.state),
-    generateModernityNarrative(ctx),
+    stored ? Promise.resolve(stored) : generateModernityNarrative(ctx),
   ])
 
-  const template      = await loadTemplate()
-  const textBody      = fillTemplate(template, ctx, ownerName, modernityNarrative)
-  const htmlBody      = buildHtmlEmail(textBody, ctx, ownerName, modernityNarrative)
+  const template = await loadTemplate()
+  const textBody = fillTemplate(template, ctx, ownerName, modernityNarrative)
+  const { attachments, beforeSrc, afterSrc } = await resolveScreenshotSources(
+    ctx.beforeScreenshotUrl,
+    ctx.afterScreenshotUrl
+  )
+  const htmlBody = buildHtmlEmail(textBody, ctx, ownerName, modernityNarrative, beforeSrc, afterSrc)
 
-  return { subject, htmlBody, textBody }
+  return { subject, htmlBody, textBody, attachments: attachments.length ? attachments : undefined }
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -216,6 +233,70 @@ function fillTemplate(
 }
 
 // ─────────────────────────────────────────────────────────────────
+// Inline screenshots (CID) for email clients that block remote images
+// ─────────────────────────────────────────────────────────────────
+
+async function resolveScreenshotSources(
+  beforeUrl: string | null,
+  afterUrl: string | null
+): Promise<{
+  attachments: EmailInlineAttachment[]
+  beforeSrc: string | null
+  afterSrc: string | null
+}> {
+  const attachments: EmailInlineAttachment[] = []
+
+  let beforeSrc: string | null = null
+  if (beforeUrl) {
+    const inline = await fetchAsInlineAttachment(beforeUrl, 'hai-screenshot-before.jpg', 'hai-screenshot-before')
+    if (inline) {
+      attachments.push(inline)
+      beforeSrc = 'cid:hai-screenshot-before'
+    } else {
+      beforeSrc = beforeUrl
+    }
+  }
+
+  let afterSrc: string | null = null
+  if (afterUrl) {
+    const inline = await fetchAsInlineAttachment(afterUrl, 'hai-screenshot-after.jpg', 'hai-screenshot-after')
+    if (inline) {
+      attachments.push(inline)
+      afterSrc = 'cid:hai-screenshot-after'
+    } else {
+      afterSrc = afterUrl
+    }
+  }
+
+  return { attachments, beforeSrc, afterSrc }
+}
+
+async function fetchAsInlineAttachment(
+  url: string,
+  filename: string,
+  contentId: string
+): Promise<EmailInlineAttachment | null> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(25_000) })
+    if (!res.ok) return null
+    const buf = Buffer.from(await res.arrayBuffer())
+    if (buf.length < 100) return null
+    const ct = res.headers.get('content-type') ?? 'image/jpeg'
+    const type = ct.split(';')[0].trim() || 'image/jpeg'
+    return {
+      content: buf.toString('base64'),
+      filename,
+      type,
+      disposition: 'inline',
+      content_id: contentId,
+    }
+  } catch (err) {
+    console.warn(`[email-builder] Inline image fetch failed (${filename}): ${(err as Error).message}`)
+    return null
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
 // HTML email builder
 // ─────────────────────────────────────────────────────────────────
 
@@ -223,7 +304,9 @@ function buildHtmlEmail(
   textBody: string,
   ctx: EmailContext,
   ownerName: string | null,
-  modernityNarrative: string
+  modernityNarrative: string,
+  beforeSrc: string | null,
+  afterSrc: string | null
 ): string {
   const greeting = ownerName ? `Hi ${ownerName},` : 'Hello,'
 
@@ -232,23 +315,23 @@ function buildHtmlEmail(
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
 
-  // Build before/after screenshot section
+  // Build before/after screenshot section (src = remote URL or cid: for inline attachments)
   let screenshotSection = ''
-  if (ctx.beforeScreenshotUrl || ctx.afterScreenshotUrl) {
+  if (beforeSrc || afterSrc) {
     screenshotSection = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
       <tr>
-        ${ctx.beforeScreenshotUrl ? `
+        ${beforeSrc ? `
         <td width="48%" valign="top">
           <p style="margin:0 0 8px 0;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Their Current Site</p>
-          <img src="${ctx.beforeScreenshotUrl}" alt="Current website" style="width:100%;border-radius:8px;border:1px solid #e5e7eb;" />
+          <img src="${beforeSrc}" alt="Current website" style="width:100%;max-width:280px;border-radius:8px;border:1px solid #e5e7eb;" />
         </td>
         <td width="4%"></td>
         ` : ''}
-        ${ctx.afterScreenshotUrl ? `
+        ${afterSrc ? `
         <td width="48%" valign="top">
-          <p style="margin:0 0 8px 0;font-size:12px;color:#059669;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">The HAI Demo ✨</p>
-          <img src="${ctx.afterScreenshotUrl}" alt="HAI redesigned demo" style="width:100%;border-radius:8px;border:1px solid #059669;" />
+          <p style="margin:0 0 8px 0;font-size:12px;color:#059669;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;">Your New Demo ✨</p>
+          <img src="${afterSrc}" alt="HAI redesigned demo" style="width:100%;max-width:280px;border-radius:8px;border:1px solid #059669;" />
         </td>
         ` : ''}
       </tr>

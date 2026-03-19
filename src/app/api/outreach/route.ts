@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import sgMail from '@sendgrid/mail'
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildEmail } from '@/pipeline/email-builder'
+import { pickBestRebuild, parseAfterScreenshotUrl } from '@/lib/rebuild-utils'
 
 /**
  * Manual Outreach Actions API
@@ -46,8 +47,13 @@ async function handleSend(businessId: string, email?: string, executiveId?: stri
     .select(`
       id, name, website,
       cities ( name, state ),
-      website_scores ( overall_score, screenshot_before_url ),
-      rebuilds ( id, live_demo_url, screenshot_after_url ),
+      website_scores (
+        overall_score, screenshot_before_url, details,
+        responsive_score, visual_era_score, performance_score,
+        security_score, accessibility_score, tech_stack_score,
+        content_quality_score, ux_score
+      ),
+      rebuilds ( id, live_demo_url, screenshot_after_url, status ),
       outreach ( id, contact_email, executive_id )
     `)
     .eq('id', businessId)
@@ -56,8 +62,15 @@ async function handleSend(businessId: string, email?: string, executiveId?: stri
   if (!biz) return NextResponse.json({ error: 'Business not found' }, { status: 404 })
 
   const city = biz.cities as unknown as { name: string; state: string } | null
-  const rebuild = Array.isArray(biz.rebuilds) ? biz.rebuilds[0] : biz.rebuilds
+  const rebuild = pickBestRebuild(biz.rebuilds) as
+    | { id: string; live_demo_url: string | null; screenshot_after_url: string | null }
+    | null
   const score = Array.isArray(biz.website_scores) ? biz.website_scores[0] : biz.website_scores
+  const scoreDetailsJson = (score?.details ?? null) as Record<string, unknown> | null
+  const storedNarrative =
+    scoreDetailsJson && typeof scoreDetailsJson.narrative_summary === 'string'
+      ? scoreDetailsJson.narrative_summary
+      : null
   const existingOutreach = Array.isArray(biz.outreach) ? biz.outreach[0] : biz.outreach
 
   if (!rebuild?.live_demo_url) {
@@ -84,12 +97,6 @@ async function handleSend(businessId: string, email?: string, executiveId?: stri
   if (!sendgridKey) return NextResponse.json({ error: 'SENDGRID_API_KEY not configured' }, { status: 500 })
   sgMail.setApiKey(sendgridKey)
 
-  // Parse screenshot URLs
-  const parseUrl = (url: string | null): string | null => {
-    if (!url) return null
-    try { const p = JSON.parse(url); return Array.isArray(p) ? p[0] : url } catch { return url }
-  }
-
   const emailContent = await buildEmail({
     businessName: biz.name,
     city: city?.name ?? '',
@@ -99,7 +106,21 @@ async function handleSend(businessId: string, email?: string, executiveId?: stri
     executiveName: exec.full_name,
     executiveEmail: exec.email,
     beforeScreenshotUrl: score?.screenshot_before_url ?? null,
-    afterScreenshotUrl: parseUrl(rebuild.screenshot_after_url),
+    afterScreenshotUrl: parseAfterScreenshotUrl(rebuild.screenshot_after_url),
+    storedNarrativeSummary: storedNarrative,
+    scoreDetails: score
+      ? {
+          responsive_score: score.responsive_score ?? 5,
+          visual_era_score: score.visual_era_score ?? 5,
+          performance_score: score.performance_score ?? 5,
+          security_score: score.security_score ?? 5,
+          accessibility_score: score.accessibility_score ?? 5,
+          tech_stack_score: score.tech_stack_score ?? 5,
+          content_quality_score: score.content_quality_score ?? 5,
+          ux_score: score.ux_score ?? 5,
+          overall_score: score.overall_score ?? 5,
+        }
+      : undefined,
   })
 
   let sendgridMessageId: string | null = null
@@ -111,6 +132,7 @@ async function handleSend(businessId: string, email?: string, executiveId?: stri
       subject: emailContent.subject,
       text: emailContent.textBody,
       html: emailContent.htmlBody,
+      attachments: emailContent.attachments,
       trackingSettings: {
         clickTracking: { enable: true, enableText: false },
         openTracking: { enable: true },

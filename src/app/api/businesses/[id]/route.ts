@@ -15,7 +15,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         responsive_score, visual_era_score, performance_score,
         security_score, accessibility_score, tech_stack_score,
         content_quality_score, ux_score,
-        screenshot_before_url, scored_at
+        screenshot_before_url, scored_at, details
       ),
       rebuilds ( status, live_demo_url, github_repo_url, built_at, screenshot_after_url ),
       outreach (
@@ -44,6 +44,18 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     try { return JSON.parse(url) } catch { return [url] }
   }
 
+  const scoreDetailsJson = rawScore?.details as Record<string, unknown> | null | undefined
+  const narrativeSummary =
+    typeof scoreDetailsJson?.narrative_summary === 'string' ? scoreDetailsJson.narrative_summary : null
+  const categoryNotes =
+    scoreDetailsJson?.category_notes && typeof scoreDetailsJson.category_notes === 'object'
+      ? (scoreDetailsJson.category_notes as Record<string, string>)
+      : null
+  const narrativeGeneratedAt =
+    typeof scoreDetailsJson?.narrative_generated_at === 'string'
+      ? scoreDetailsJson.narrative_generated_at
+      : null
+
   const normalized = {
     id:           b.id,
     name:         b.name,
@@ -71,6 +83,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       },
       screenshot_urls: parseScreenshots(rawScore.screenshot_before_url),
       scored_at:       rawScore.scored_at,
+      narrative_summary:     narrativeSummary,
+      category_notes:        categoryNotes,
+      narrative_generated_at: narrativeGeneratedAt,
     } : null,
 
     rebuild: rawRebuild ? {

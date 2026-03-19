@@ -14,6 +14,7 @@ import 'dotenv/config'
 import { supabaseAdmin } from '@/lib/supabase'
 import { scoreWebsite, launchBrowser } from './score'
 import { captureScreenshots, buildSlug } from './screenshot'
+import { generateScoreNarrativesFromScoring } from './score-narrative'
 import type { Business } from '@/types/database'
 
 const BATCH_SIZE = 15
@@ -100,6 +101,32 @@ export async function runScoring(cityInput: string): Promise<ScoreRunResult> {
       // Primary screenshot = first URL
       const primaryScreenshot = screenshotUrls[0] ?? null
 
+      const baseDetails = {
+        responsive: scoring.responsive.details,
+        visualEra: scoring.visualEra.details,
+        performance: scoring.performance.details,
+        security: scoring.security.details,
+        accessibility: scoring.accessibility.details,
+        techStack: scoring.techStack.details,
+        contentQuality: scoring.contentQuality.details,
+        ux: scoring.ux.details,
+        loadedUrl: scoring.loadedUrl,
+        screenshotUrls,
+        errorFlag: scoring.errorFlag,
+      }
+
+      let narrativeBlock: Record<string, unknown> = {}
+      try {
+        const nar = await generateScoreNarrativesFromScoring(biz.name, city.name, city.state, scoring)
+        narrativeBlock = {
+          narrative_summary: nar.narrative_summary,
+          category_notes: nar.category_notes,
+          narrative_generated_at: new Date().toISOString(),
+        }
+      } catch (e) {
+        console.warn(`  narrative generation skipped: ${(e as Error).message}`)
+      }
+
       // Save to website_scores
       const { error: insertErr } = await supabaseAdmin.from('website_scores').upsert({
         business_id: biz.id,
@@ -112,19 +139,7 @@ export async function runScoring(cityInput: string): Promise<ScoreRunResult> {
         tech_stack_score: scoring.techStack.score,
         content_quality_score: scoring.contentQuality.score,
         ux_score: scoring.ux.score,
-        details: {
-          responsive: scoring.responsive.details,
-          visualEra: scoring.visualEra.details,
-          performance: scoring.performance.details,
-          security: scoring.security.details,
-          accessibility: scoring.accessibility.details,
-          techStack: scoring.techStack.details,
-          contentQuality: scoring.contentQuality.details,
-          ux: scoring.ux.details,
-          loadedUrl: scoring.loadedUrl,
-          screenshotUrls,
-          errorFlag: scoring.errorFlag,
-        },
+        details: { ...baseDetails, ...narrativeBlock },
         screenshot_before_url: primaryScreenshot,
       }, { onConflict: 'business_id' })
 

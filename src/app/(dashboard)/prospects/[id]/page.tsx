@@ -12,7 +12,8 @@ import { Input } from '@/components/ui/input'
 import {
   ArrowLeft, Globe, Phone, MapPin, Star, ExternalLink,
   Hammer, Mail, ChevronDown, ChevronUp, Save, Loader2,
-  Send, UserX, CheckCircle2, AlertCircle, MailPlus
+  Send, UserX, CheckCircle2, AlertCircle, MailPlus,
+  FileText, RefreshCw,
 } from 'lucide-react'
 
 interface ScoreDetails {
@@ -43,6 +44,9 @@ interface Business {
     score_details: ScoreDetails
     screenshot_urls: string[]
     scored_at: string
+    narrative_summary: string | null
+    category_notes: Record<string, string> | null
+    narrative_generated_at: string | null
   } | null
   rebuild: {
     status: string
@@ -271,6 +275,9 @@ export default function ProspectDetailPage() {
   const [saving, setSaving] = useState(false)
   const [showBefore, setShowBefore] = useState(true)
   const [showAfter, setShowAfter] = useState(true)
+  const [narrativeLoading, setNarrativeLoading] = useState(false)
+  const [narrativeMsg, setNarrativeMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [showCategoryNotes, setShowCategoryNotes] = useState(false)
   const [rebuilding, setRebuilding] = useState(false)
   const [rebuildError, setRebuildError] = useState<string | null>(null)
   const [linkSlug, setLinkSlug] = useState('')
@@ -346,6 +353,27 @@ export default function ProspectDetailPage() {
       body: JSON.stringify({ notes }),
     })
     setSaving(false)
+  }
+
+  const regenerateNarrative = async () => {
+    setNarrativeLoading(true)
+    setNarrativeMsg(null)
+    try {
+      const res = await fetch(`/api/businesses/${id}/narrative`, { method: 'POST' })
+      const data = await res.json()
+      if (data.ok) {
+        setNarrativeMsg({ ok: true, text: 'Narrative updated. Uses one Claude call.' })
+        const r = await fetch(`/api/businesses/${id}`)
+        const d = await r.json()
+        setBiz(d)
+        setNotes(d.notes ?? '')
+      } else {
+        setNarrativeMsg({ ok: false, text: data.error ?? 'Failed' })
+      }
+    } catch {
+      setNarrativeMsg({ ok: false, text: 'Network error' })
+    }
+    setNarrativeLoading(false)
   }
 
   if (loading) {
@@ -445,6 +473,89 @@ export default function ProspectDetailPage() {
             <p className="text-xs text-muted-foreground mt-3">
               Scored {new Date(score.scored_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Narrative scoring (for dashboard + outreach emails) */}
+      {score && details && (
+        <Card className="border-border/50 border-[#5D3FA3]/20">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#C7A8E4]" />
+                <span>Audit narrative</span>
+                <span className="text-xs font-normal text-muted-foreground">(email opening + category notes)</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={narrativeLoading}
+                onClick={regenerateNarrative}
+                className="shrink-0"
+              >
+                {narrativeLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3.5 h-3.5" />
+                )}
+                <span className="ml-1.5">{score.narrative_summary ? 'Regenerate' : 'Generate'}</span>
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {narrativeMsg && (
+              <p className={`text-sm ${narrativeMsg.ok ? 'text-green-400' : 'text-red-400'}`}>
+                {narrativeMsg.text}
+              </p>
+            )}
+            {score.narrative_summary ? (
+              <>
+                <p className="text-sm leading-relaxed text-foreground/90 border-l-2 border-[#5D3FA3]/50 pl-3">
+                  {score.narrative_summary}
+                </p>
+                {score.narrative_generated_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Generated {new Date(score.narrative_generated_at).toLocaleString()}
+                  </p>
+                )}
+                {score.category_notes && Object.keys(score.category_notes).length > 0 && (
+                  <div>
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-2"
+                      onClick={() => setShowCategoryNotes((v) => !v)}
+                    >
+                      Category notes
+                      {showCategoryNotes ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+                    {showCategoryNotes && (
+                      <ul className="space-y-2 text-sm text-muted-foreground">
+                        {(Object.keys(SCORE_LABELS) as (keyof ScoreDetails)[]).map((key) => {
+                          const note = score.category_notes?.[key]
+                          if (!note) return null
+                          return (
+                            <li key={key}>
+                              <span className="font-medium text-foreground/80">{SCORE_LABELS[key]}:</span>{' '}
+                              {note}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Outbound emails use this summary when present; screenshots are embedded so they show in Gmail/Outlook.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No narrative yet. Click <strong>Generate</strong> to create one from this score (good for Vincent Dental and
+                any site scored before this feature). New scores from the pipeline get a narrative automatically.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

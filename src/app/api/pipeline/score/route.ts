@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
     // Dynamic import to avoid Turbopack issues with Lighthouse's dynamic requires
     const scoreModule = await import('@/pipeline/score')
     const screenshotModule = await import('@/pipeline/screenshot')
+    const { generateScoreNarrativesFromScoring } = await import('@/pipeline/score-narrative')
     const { scoreWebsite, launchBrowser } = scoreModule
     const { captureScreenshots, buildSlug } = screenshotModule
 
@@ -70,6 +71,37 @@ export async function POST(req: NextRequest) {
 
         const primaryScreenshot = screenshotUrls[0] ?? null
 
+        const baseDetails = {
+          responsive: scoring.responsive.details,
+          visualEra: scoring.visualEra.details,
+          performance: scoring.performance.details,
+          security: scoring.security.details,
+          accessibility: scoring.accessibility.details,
+          techStack: scoring.techStack.details,
+          contentQuality: scoring.contentQuality.details,
+          ux: scoring.ux.details,
+          loadedUrl: scoring.loadedUrl,
+          screenshotUrls,
+          errorFlag: scoring.errorFlag,
+        }
+
+        let narrativeBlock: Record<string, unknown> = {}
+        try {
+          const nar = await generateScoreNarrativesFromScoring(
+            biz.name,
+            cityRow.name,
+            cityRow.state,
+            scoring
+          )
+          narrativeBlock = {
+            narrative_summary: nar.narrative_summary,
+            category_notes: nar.category_notes,
+            narrative_generated_at: new Date().toISOString(),
+          }
+        } catch {
+          /* optional */
+        }
+
         await supabaseAdmin.from('website_scores').upsert({
           business_id: biz.id,
           overall_score: scoring.overall,
@@ -81,19 +113,7 @@ export async function POST(req: NextRequest) {
           tech_stack_score: scoring.techStack.score,
           content_quality_score: scoring.contentQuality.score,
           ux_score: scoring.ux.score,
-          details: {
-            responsive: scoring.responsive.details,
-            visualEra: scoring.visualEra.details,
-            performance: scoring.performance.details,
-            security: scoring.security.details,
-            accessibility: scoring.accessibility.details,
-            techStack: scoring.techStack.details,
-            contentQuality: scoring.contentQuality.details,
-            ux: scoring.ux.details,
-            loadedUrl: scoring.loadedUrl,
-            screenshotUrls,
-            errorFlag: scoring.errorFlag,
-          },
+          details: { ...baseDetails, ...narrativeBlock },
           screenshot_before_url: primaryScreenshot,
         }, { onConflict: 'business_id' })
 
