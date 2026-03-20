@@ -45,8 +45,17 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const scoreDetailsJson = rawScore?.details as Record<string, unknown> | null | undefined
-  const narrativeSummary =
-    typeof scoreDetailsJson?.narrative_summary === 'string' ? scoreDetailsJson.narrative_summary : null
+  const emailOpening =
+    typeof scoreDetailsJson?.email_opening === 'string' && scoreDetailsJson.email_opening.trim()
+      ? scoreDetailsJson.email_opening
+      : typeof scoreDetailsJson?.narrative_summary === 'string'
+        ? scoreDetailsJson.narrative_summary
+        : null
+  const narrativeExtended =
+    typeof scoreDetailsJson?.narrative_extended === 'string' && scoreDetailsJson.narrative_extended.trim()
+      ? scoreDetailsJson.narrative_extended
+      : null
+  const narrativeSummary = emailOpening
   const categoryNotes =
     scoreDetailsJson?.category_notes && typeof scoreDetailsJson.category_notes === 'object'
       ? (scoreDetailsJson.category_notes as Record<string, string>)
@@ -83,8 +92,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       },
       screenshot_urls: parseScreenshots(rawScore.screenshot_before_url),
       scored_at:       rawScore.scored_at,
-      narrative_summary:     narrativeSummary,
-      category_notes:        categoryNotes,
+      narrative_summary:      narrativeSummary,
+      narrative_email_opening: emailOpening,
+      narrative_extended:     narrativeExtended,
+      category_notes:         categoryNotes,
       narrative_generated_at: narrativeGeneratedAt,
     } : null,
 

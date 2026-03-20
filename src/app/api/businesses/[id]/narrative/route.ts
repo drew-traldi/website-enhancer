@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateScoreNarrativesFromStoredRow } from '@/pipeline/score-narrative'
 
-export const maxDuration = 120
+export const maxDuration = 300
 
 /**
  * POST — Regenerate AI narrative for an existing score (e.g. Vincent Dental after launch).
@@ -50,7 +50,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
     const mergedDetails = {
       ...existingDetails,
-      narrative_summary: payload.narrative_summary,
+      email_opening: payload.email_opening,
+      narrative_extended: payload.narrative_extended,
+      narrative_summary: payload.email_opening,
       category_notes: payload.category_notes,
       narrative_generated_at: new Date().toISOString(),
     }
@@ -66,7 +68,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
     return NextResponse.json({
       ok: true,
-      narrative_summary: payload.narrative_summary,
+      email_opening: payload.email_opening,
+      narrative_extended: payload.narrative_extended,
       category_notes: payload.category_notes,
     })
   } catch (err) {

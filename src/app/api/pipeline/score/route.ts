@@ -94,7 +94,9 @@ export async function POST(req: NextRequest) {
             scoring
           )
           narrativeBlock = {
-            narrative_summary: nar.narrative_summary,
+            email_opening: nar.email_opening,
+            narrative_extended: nar.narrative_extended,
+            narrative_summary: nar.email_opening,
             category_notes: nar.category_notes,
             narrative_generated_at: new Date().toISOString(),
           }

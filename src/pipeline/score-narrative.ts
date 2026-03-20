@@ -1,6 +1,7 @@
 /**
  * AI-generated narrative summaries for website scores (dashboard + outreach emails).
- * Stored in website_scores.details as narrative_summary + category_notes.
+ * Stored in website_scores.details: email_opening, narrative_extended,
+ * narrative_summary (duplicate of email_opening for backward compatibility), category_notes.
  */
 
 import Anthropic from '@anthropic-ai/sdk'
@@ -9,7 +10,10 @@ import type { ScoringDetails } from '@/pipeline/score'
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 export interface ScoreNarrativePayload {
-  narrative_summary: string
+  /** 2–3 sentences — used as the email opening after “Hello,” */
+  email_opening: string
+  /** Multi-paragraph audit for the dashboard (plain text, \\n\\n between paragraphs) */
+  narrative_extended: string
   category_notes: Record<string, string>
 }
 
@@ -24,7 +28,8 @@ const CATEGORY_KEYS = [
   'ux',
 ] as const
 
-function truncateJson(obj: unknown, maxLen = 400): string {
+/** Enough signal for Claude to write specifics without blowing the context window */
+function truncateJson(obj: unknown, maxLen = 1400): string {
   const s = JSON.stringify(obj)
   return s.length <= maxLen ? s : s.slice(0, maxLen) + '…'
 }
@@ -92,6 +97,28 @@ export async function generateScoreNarrativesFromStoredRow(
   return callClaudeForNarrative(businessName, city, state, overall, breakdown)
 }
 
+function parseClaudeJsonObject(text: string): Record<string, unknown> | null {
+  let t = text.trim()
+  if (t.startsWith('```')) {
+    const m = t.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/im)
+    if (m) t = m[1].trim()
+  }
+  try {
+    return JSON.parse(t) as Record<string, unknown>
+  } catch {
+    const start = t.indexOf('{')
+    const end = t.lastIndexOf('}')
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(t.slice(start, end + 1)) as Record<string, unknown>
+      } catch {
+        /* fall through */
+      }
+    }
+  }
+  return null
+}
+
 async function callClaudeForNarrative(
   businessName: string,
   city: string,
@@ -107,7 +134,7 @@ async function callClaudeForNarrative(
   try {
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 900,
+      max_tokens: 4096,
       messages: [
         {
           role: 'user',
@@ -116,56 +143,84 @@ async function callClaudeForNarrative(
 ${loc}
 Overall score: ${overall.toFixed(1)} / 10 (10 = state-of-the-art).
 
-Per-category scores and automated signals (JSON fragments):
+Below is EVERYTHING our automated audit captured (scores + raw signals per category). Use these specifics — name real patterns (e.g. table layouts, HTTPS, Lighthouse metrics, font stack) when the data supports it.
+
+Per-category scores and signals:
 ${JSON.stringify(breakdown, null, 2)}
 
-Return ONLY valid JSON (no markdown) with this exact shape:
-{
-  "narrative_summary": "2-3 sentences. Professional, specific, not condescending. Mention 1-2 weakest areas and one strength. Suitable for an email after 'Hello,'.",
-  "category_notes": {
-    "responsive": "one short sentence",
-    "visualEra": "one short sentence",
-    "performance": "one short sentence",
-    "security": "one short sentence",
-    "accessibility": "one short sentence",
-    "techStack": "one short sentence",
-    "contentQuality": "one short sentence",
-    "ux": "one short sentence"
-  }
-}
+Return ONLY valid JSON (no markdown fences, no commentary). Escape newlines inside strings as \\n.
 
-Each category_notes value must reference that category only (15 words max). Use plain language.`,
+Required shape:
+{
+  "email_opening": "Exactly 2-3 sentences. Warm, professional, not condescending. Reference 1-2 concrete weaknesses and one strength from the signals above. This will appear right after 'Hello,' in an email.",
+  "narrative_extended": "A comprehensive audit write-up: 4-6 short paragraphs separated by \\n\\n. Cover: (1) overall impression and what the score means for trust and conversions, (2) weakest 2-3 categories with specifics from the signals, (3) what is already working, (4) what a modern rebuild would improve (still grounded in the data). Write for an intelligent non-technical owner.",
+  "category_notes": {
+    "responsive": "2-3 sentences referencing viewport, layout, or mobile signals when present.",
+    "visualEra": "2-3 sentences on visual/modernity signals (fonts, frameworks, dated patterns).",
+    "performance": "2-3 sentences; cite Lighthouse or load signals if present in data.",
+    "security": "2-3 sentences on HTTPS, mixed content, etc. if present.",
+    "accessibility": "2-3 sentences on a11y heuristics from data.",
+    "techStack": "2-3 sentences on CMS/framework/stack hints from data.",
+    "contentQuality": "2-3 sentences on content structure/clarity from data.",
+    "ux": "2-3 sentences on navigation/UX patterns from data."
+  }
+}`,
         },
       ],
     })
     const raw = message.content[0]
     if (raw.type === 'text') {
-      const match = raw.text.match(/\{[\s\S]*\}/)
-      const parsed = JSON.parse(match?.[0] ?? '{}') as {
-        narrative_summary?: string
-        category_notes?: Record<string, string>
-      }
-      const narrative_summary =
-        typeof parsed.narrative_summary === 'string' && parsed.narrative_summary.trim()
-          ? parsed.narrative_summary.trim()
-          : fallbackSummary(overall, breakdown)
-      const category_notes =
-        parsed.category_notes && typeof parsed.category_notes === 'object'
-          ? parsed.category_notes
-          : {}
-      for (const key of CATEGORY_KEYS) {
-        if (!category_notes[key] || typeof category_notes[key] !== 'string') {
-          category_notes[key] = `Scored ${scoresFromBreakdown(breakdown, key).toFixed(1)}/10 based on automated checks.`
+      const parsed = parseClaudeJsonObject(raw.text)
+      if (!parsed) {
+        console.warn('[score-narrative] Could not parse JSON from Claude response')
+      } else {
+        const email_opening =
+          typeof parsed.email_opening === 'string' && parsed.email_opening.trim()
+            ? parsed.email_opening.trim()
+            : typeof parsed.narrative_summary === 'string' && parsed.narrative_summary.trim()
+              ? parsed.narrative_summary.trim()
+              : ''
+        const narrative_extended =
+          typeof parsed.narrative_extended === 'string' && parsed.narrative_extended.trim()
+            ? parsed.narrative_extended.trim().replace(/\\n/g, '\n')
+            : ''
+
+        const category_notesRaw = parsed.category_notes
+        const category_notes: Record<string, string> =
+          category_notesRaw && typeof category_notesRaw === 'object' && !Array.isArray(category_notesRaw)
+            ? (category_notesRaw as Record<string, string>)
+            : {}
+
+        for (const key of CATEGORY_KEYS) {
+          if (!category_notes[key] || typeof category_notes[key] !== 'string') {
+            category_notes[key] = `Scored ${scoresFromBreakdown(breakdown, key).toFixed(1)}/10 — see automated signals in the full audit.`
+          }
+        }
+
+        if (email_opening && narrative_extended) {
+          return { email_opening, narrative_extended, category_notes }
+        }
+        if (email_opening || narrative_extended) {
+          return {
+            email_opening: email_opening || fallbackSummary(overall, breakdown),
+            narrative_extended:
+              narrative_extended ||
+              `${email_opening || fallbackSummary(overall, breakdown)}\n\n${Object.entries(category_notes)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join('\n\n')}`,
+            category_notes,
+          }
         }
       }
-      return { narrative_summary, category_notes }
     }
   } catch (err) {
     console.warn(`[score-narrative] AI failed: ${(err as Error).message}`)
   }
 
+  const fb = fallbackSummary(overall, breakdown)
   return {
-    narrative_summary: fallbackSummary(overall, breakdown),
+    email_opening: fb,
+    narrative_extended: fb,
     category_notes: Object.fromEntries(
       CATEGORY_KEYS.map((k) => [k, `Rated ${scoresFromBreakdown(breakdown, k).toFixed(1)}/10 from our automated audit.`])
     ) as Record<string, string>,

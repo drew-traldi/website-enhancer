@@ -45,6 +45,8 @@ interface Business {
     screenshot_urls: string[]
     scored_at: string
     narrative_summary: string | null
+    narrative_email_opening: string | null
+    narrative_extended: string | null
     category_notes: Record<string, string> | null
     narrative_generated_at: string | null
   } | null
@@ -500,7 +502,9 @@ export default function ProspectDetailPage() {
                 ) : (
                   <RefreshCw className="w-3.5 h-3.5" />
                 )}
-                <span className="ml-1.5">{score.narrative_summary ? 'Regenerate' : 'Generate'}</span>
+                <span className="ml-1.5">
+                  {score.narrative_extended || score.narrative_summary ? 'Regenerate' : 'Generate'}
+                </span>
               </Button>
             </CardTitle>
           </CardHeader>
@@ -510,11 +514,31 @@ export default function ProspectDetailPage() {
                 {narrativeMsg.text}
               </p>
             )}
-            {score.narrative_summary ? (
+            {score.narrative_extended || score.narrative_summary ? (
               <>
-                <p className="text-sm leading-relaxed text-foreground/90 border-l-2 border-[#5D3FA3]/50 pl-3">
-                  {score.narrative_summary}
-                </p>
+                {score.narrative_extended ? (
+                  <div className="space-y-3 text-sm leading-relaxed text-foreground/90 border border-[#5D3FA3]/15 rounded-lg p-4 bg-muted/20">
+                    {score.narrative_extended.split(/\n\n+/).map((para, i) => (
+                      <p key={i}>{para.trim()}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm leading-relaxed text-foreground/90 border-l-2 border-[#5D3FA3]/50 pl-3">
+                    {score.narrative_summary}
+                  </p>
+                )}
+
+                {(score.narrative_email_opening || score.narrative_summary) && (
+                  <div className="rounded-md border border-border/60 bg-background/50 p-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+                      Email opening (after “Hello,”)
+                    </p>
+                    <p className="text-sm text-foreground/85">
+                      {score.narrative_email_opening ?? score.narrative_summary}
+                    </p>
+                  </div>
+                )}
+
                 {score.narrative_generated_at && (
                   <p className="text-xs text-muted-foreground">
                     Generated {new Date(score.narrative_generated_at).toLocaleString()}
@@ -547,13 +571,14 @@ export default function ProspectDetailPage() {
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Outbound emails use this summary when present; screenshots are embedded so they show in Gmail/Outlook.
+                  Full audit uses your saved score signals — no re-scoring needed. Emails use the short opening above;
+                  screenshots are embedded for Gmail/Outlook.
                 </p>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                No narrative yet. Click <strong>Generate</strong> to create one from this score (good for Vincent Dental and
-                any site scored before this feature). New scores from the pipeline get a narrative automatically.
+                No narrative yet. Click <strong>Generate</strong> to build a full audit from the data we already captured
+                when this site was scored. New pipeline scores get narratives automatically.
               </p>
             )}
           </CardContent>

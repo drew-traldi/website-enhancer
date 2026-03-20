@@ -68,9 +68,11 @@ async function handleSend(businessId: string, email?: string, executiveId?: stri
   const score = Array.isArray(biz.website_scores) ? biz.website_scores[0] : biz.website_scores
   const scoreDetailsJson = (score?.details ?? null) as Record<string, unknown> | null
   const storedNarrative =
-    scoreDetailsJson && typeof scoreDetailsJson.narrative_summary === 'string'
-      ? scoreDetailsJson.narrative_summary
-      : null
+    scoreDetailsJson && typeof scoreDetailsJson.email_opening === 'string' && scoreDetailsJson.email_opening.trim()
+      ? scoreDetailsJson.email_opening
+      : scoreDetailsJson && typeof scoreDetailsJson.narrative_summary === 'string'
+        ? scoreDetailsJson.narrative_summary
+        : null
   const existingOutreach = Array.isArray(biz.outreach) ? biz.outreach[0] : biz.outreach
 
   if (!rebuild?.live_demo_url) {

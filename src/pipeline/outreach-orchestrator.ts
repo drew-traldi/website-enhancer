@@ -151,9 +151,11 @@ export async function runOutreachPipeline(cityInput?: string): Promise<OutreachR
     const score = biz.website_scores?.[0]
     const scoreDetailsJson = score?.details ?? null
     const storedNarrative =
-      scoreDetailsJson && typeof scoreDetailsJson.narrative_summary === 'string'
-        ? scoreDetailsJson.narrative_summary
-        : null
+      scoreDetailsJson && typeof scoreDetailsJson.email_opening === 'string' && scoreDetailsJson.email_opening.trim()
+        ? scoreDetailsJson.email_opening
+        : scoreDetailsJson && typeof scoreDetailsJson.narrative_summary === 'string'
+          ? scoreDetailsJson.narrative_summary
+          : null
 
     // Round-robin executive assignment
     const exec = executives[i % executives.length]
