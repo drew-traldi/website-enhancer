@@ -84,31 +84,56 @@ function ScoreBar({ score }: { score: number }) {
   )
 }
 
+type SortOption = 'newest' | 'score_asc' | 'score_desc'
+
 export default function ProspectsPage() {
   const searchParams = useSearchParams()
   const initialStatus = searchParams.get('status') || 'all'
+  const urlPassedFilter = searchParams.get('passed_filter')
+  const urlHasScore = searchParams.get('has_score')
+  const urlRebuiltStage = searchParams.get('rebuilt_stage')
 
   const [data, setData] = useState<Page | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState(initialStatus)
   const [page, setPage] = useState(1)
+  const [sortOption, setSortOption] = useState<SortOption>('newest')
+
+  // Sync sort from URL (e.g. funnel link "Scored" → lowest score first)
+  useEffect(() => {
+    const s = searchParams.get('sort')
+    const o = searchParams.get('order')
+    if (s === 'overall_score') {
+      setSortOption(o === 'desc' ? 'score_desc' : 'score_asc')
+    }
+  }, [searchParams])
 
   const fetchData = useCallback(() => {
     setLoading(true)
     const params = new URLSearchParams({ page: String(page), per_page: '25' })
-    if (search) params.set('search', search)
+    if (search.trim()) params.set('search', search.trim())
     if (status !== 'all') params.set('status', status)
+    if (urlPassedFilter === '1') params.set('passed_filter', '1')
+    if (urlHasScore === '1') params.set('has_score', '1')
+    if (urlRebuiltStage === '1') params.set('rebuilt_stage', '1')
+    if (sortOption === 'score_asc') {
+      params.set('sort', 'overall_score')
+      params.set('order', 'asc')
+    } else if (sortOption === 'score_desc') {
+      params.set('sort', 'overall_score')
+      params.set('order', 'desc')
+    }
     fetch(`/api/businesses?${params}`)
       .then(r => r.json())
       .then(setData)
       .finally(() => setLoading(false))
-  }, [search, status, page])
+  }, [search, status, page, sortOption, urlPassedFilter, urlHasScore, urlRebuiltStage])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   // Reset to page 1 when filters change
-  useEffect(() => { setPage(1) }, [search, status])
+  useEffect(() => { setPage(1) }, [search, status, urlPassedFilter, urlHasScore, urlRebuiltStage, sortOption])
 
   const totalPages = data ? Math.ceil(data.total / (data.per_page || 25)) : 0
 
@@ -153,7 +178,26 @@ export default function ProspectsPage() {
             <SelectItem value="manual_required">Manual Required</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={sortOption} onValueChange={(v) => setSortOption((v as SortOption) ?? 'newest')}>
+          <SelectTrigger className="w-full sm:w-52">
+            <SelectValue placeholder="Sort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Newest discovered</SelectItem>
+            <SelectItem value="score_asc">Score: low → high</SelectItem>
+            <SelectItem value="score_desc">Score: high → low</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+
+      {(urlPassedFilter === '1' || urlHasScore === '1' || urlRebuiltStage === '1') && (
+        <p className="text-xs text-muted-foreground mb-4">
+          {urlPassedFilter === '1' && <span className="mr-2">Passed filter</span>}
+          {urlHasScore === '1' && <span className="mr-2">Has modernity score</span>}
+          {urlRebuiltStage === '1' && <span>Rebuilt / post-demo</span>}
+          <span className="text-muted-foreground/60"> — clear by opening Prospects from the nav without query params.</span>
+        </p>
+      )}
 
       {/* Table */}
       <Card className="border-border/50">

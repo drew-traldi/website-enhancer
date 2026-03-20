@@ -21,11 +21,15 @@ import {
 
 interface Stats {
   funnel: {
+    /** Total business rows in DB (everything pulled into the pipeline) */
     discovered: number
+    /** Passed activity filter (status moved past `discovered`) */
     filtered: number
+    /** Has a website_scores row */
     scored: number
     queued: number
     rebuilding: number
+    /** Demo deployed / past rebuild */
     rebuilt: number
     emailed: number
   }
@@ -40,11 +44,11 @@ interface Stats {
 }
 
 const FUNNEL_STEPS = [
-  { key: 'discovered', label: 'Discovered', icon: Building2, color: '#5D3FA3', statusFilter: 'discovered' },
-  { key: 'filtered',   label: 'Filtered',   icon: Filter,    color: '#7A4EB8', statusFilter: 'filtered' },
-  { key: 'scored',     label: 'Scored',     icon: Star,      color: '#3BC9B5', statusFilter: 'scored' },
-  { key: 'rebuilt',    label: 'Rebuilt',    icon: Hammer,    color: '#4ade80', statusFilter: 'rebuilt' },
-  { key: 'emailed',    label: 'Emailed',    icon: Mail,      color: '#60a5fa', statusFilter: 'email_sent' },
+  { key: 'discovered', label: 'Discovered', icon: Building2, color: '#5D3FA3', href: '/prospects' },
+  { key: 'filtered',   label: 'Filtered',   icon: Filter,    color: '#7A4EB8', href: '/prospects?passed_filter=1' },
+  { key: 'scored',     label: 'Scored',     icon: Star,      color: '#3BC9B5', href: '/prospects?has_score=1&sort=overall_score&order=asc' },
+  { key: 'rebuilt',    label: 'Rebuilt',    icon: Hammer,    color: '#4ade80', href: '/prospects?rebuilt_stage=1' },
+  { key: 'emailed',    label: 'Emailed',    icon: Mail,      color: '#60a5fa', href: '/prospects?status=email_sent' },
 ]
 
 const HAI_LOADING_PHRASES = [
@@ -203,11 +207,11 @@ export default function OverviewPage() {
       <PageShell>
         {/* Funnel cards — clickable */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-          {FUNNEL_STEPS.map(({ key, label, icon: Icon, color, statusFilter }) => {
+          {FUNNEL_STEPS.map(({ key, label, icon: Icon, color, href }) => {
             const val = funnel?.[key as keyof typeof funnel] ?? 0
             const pct = discovered > 0 ? Math.round((val / discovered) * 100) : 0
             return (
-              <Link key={key} href={`/prospects?status=${statusFilter}`}>
+              <Link key={key} href={href}>
                 <Card className="border-border/50 cursor-pointer transition-all duration-200 hover:scale-[1.02] hover:shadow-lg group"
                       style={{ '--card-accent': color } as React.CSSProperties}>
                   <CardContent className="pt-5 pb-4">
@@ -412,7 +416,10 @@ function PageShell({ children }: { children: React.ReactNode }) {
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Pipeline Overview</h1>
-        <p className="text-muted-foreground text-sm mt-1">Real-time pipeline status across all cities</p>
+        <p className="text-muted-foreground text-sm mt-1">
+          Funnel counts: total in DB → passed filter → has modernity score → rebuilt demo → emailed.
+          Click a card to open the matching prospect list.
+        </p>
       </div>
       {children}
     </div>
