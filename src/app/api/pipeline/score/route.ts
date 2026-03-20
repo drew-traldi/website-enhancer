@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
             narrative_summary: nar.email_opening,
             category_notes: nar.category_notes,
             narrative_generated_at: new Date().toISOString(),
+            narrative_last_usage: nar.usage ?? null,
           }
         } catch {
           /* optional */

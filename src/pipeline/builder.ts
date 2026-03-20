@@ -18,6 +18,37 @@ export interface BuildResult {
   briefUsed: string
 }
 
+const AUDIT_CONTEXT_MAX = 4500
+
+/**
+ * Turn stored score `details` (narrative + category notes) into builder context
+ * so the demo explicitly addresses audit findings (e.g. no viewport, Flash, mixed content).
+ */
+export function formatAuditContextForRebuild(details: Record<string, unknown> | null | undefined): string | undefined {
+  if (!details || typeof details !== 'object') return undefined
+  const parts: string[] = []
+
+  const ext = typeof details.narrative_extended === 'string' ? details.narrative_extended.trim() : ''
+  if (ext) {
+    const clip = ext.length > 2800 ? `${ext.slice(0, 2800)}…` : ext
+    parts.push(`## Automated audit narrative (themes to fix in this demo)\n${clip}`)
+  }
+
+  const cn = details.category_notes
+  if (cn && typeof cn === 'object' && !Array.isArray(cn)) {
+    const lines = Object.entries(cn as Record<string, string>)
+      .filter(([, v]) => typeof v === 'string' && v.trim())
+      .map(([k, v]) => `- **${k}**: ${v.trim()}`)
+      .join('\n')
+    if (lines) parts.push(`## Per-category audit notes\n${lines}`)
+  }
+
+  if (!parts.length) return undefined
+  let s = parts.join('\n\n')
+  if (s.length > AUDIT_CONTEXT_MAX) s = s.slice(0, AUDIT_CONTEXT_MAX) + '…'
+  return s
+}
+
 /**
  * Generate a modern demo site for the given business.
  */
@@ -28,10 +59,11 @@ export async function buildSite(
   state: string,
   originalScore: number,
   slug: string,
-  executiveNotes?: string
+  executiveNotes?: string,
+  auditContext?: string
 ): Promise<BuildResult> {
 
-  const brief = buildBrief(scraped, businessName, city, state, originalScore, executiveNotes)
+  const brief = buildBrief(scraped, businessName, city, state, originalScore, executiveNotes, auditContext)
 
   console.log(`  [builder] Calling Claude for ${businessName}…`)
 
@@ -72,7 +104,8 @@ function buildBrief(
   city: string,
   state: string,
   originalScore: number,
-  executiveNotes?: string
+  executiveNotes?: string,
+  auditContext?: string
 ): string {
 
   const services = scraped.services.length
@@ -113,7 +146,12 @@ ${bodySnippet}
 Generate a complete, single-file \`index.html\` demo website for **${businessName}**.
 
 The existing site scored **${originalScore.toFixed(1)}/10** on a modern web standards audit. Your demo should be dramatically better.
+${auditContext ? `
+## Audit findings you must address in this build
+The following comes from our automated audit of their **current** live site. Use it as a checklist: fix or avoid every issue that still applies (e.g. add viewport and responsive nav if they lack mobile support; never use Flash or deprecated plugins; use HTTPS-only asset patterns; proper H1, alt text, and visible CTAs; external stylesheets / Tailwind only — no inline-style soup; no jQuery requirement).
 
+${auditContext}
+` : ''}
 ## Required Technical Specs
 - Use **Tailwind CSS CDN** (v3): \`<script src="https://cdn.tailwindcss.com"></script>\`
 - Single HTML file — no external JS files or build steps

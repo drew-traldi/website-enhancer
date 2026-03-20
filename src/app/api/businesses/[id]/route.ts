@@ -64,6 +64,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     typeof scoreDetailsJson?.narrative_generated_at === 'string'
       ? scoreDetailsJson.narrative_generated_at
       : null
+  const rawUsage = scoreDetailsJson?.narrative_last_usage as Record<string, unknown> | undefined
+  const narrativeUsage =
+    rawUsage &&
+    typeof rawUsage.input_tokens === 'number' &&
+    typeof rawUsage.output_tokens === 'number'
+      ? { input_tokens: rawUsage.input_tokens, output_tokens: rawUsage.output_tokens }
+      : null
 
   const normalized = {
     id:           b.id,
@@ -97,6 +104,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       narrative_extended:     narrativeExtended,
       category_notes:         categoryNotes,
       narrative_generated_at: narrativeGeneratedAt,
+      narrative_usage:        narrativeUsage,
     } : null,
 
     rebuild: rawRebuild ? {

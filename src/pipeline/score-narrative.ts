@@ -9,12 +9,20 @@ import type { ScoringDetails } from '@/pipeline/score'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+/** Token counts returned by Anthropic on the Messages API response (billed usage). */
+export interface NarrativeTokenUsage {
+  input_tokens: number
+  output_tokens: number
+}
+
 export interface ScoreNarrativePayload {
   /** 2–3 sentences — used as the email opening after “Hello,” */
   email_opening: string
   /** Multi-paragraph audit for the dashboard (plain text, \\n\\n between paragraphs) */
   narrative_extended: string
   category_notes: Record<string, string>
+  /** Present when the Claude request completed; omitted on fallback or transport errors */
+  usage?: NarrativeTokenUsage
 }
 
 const CATEGORY_KEYS = [
@@ -126,6 +134,8 @@ async function callClaudeForNarrative(
   overall: number,
   breakdown: Array<{ category: string; score: number; signals: string }>
 ): Promise<ScoreNarrativePayload> {
+  let usage: NarrativeTokenUsage | undefined
+
   const loc =
     businessName.trim() && city.trim()
       ? `Business: ${businessName} in ${city}, ${state}`
@@ -168,6 +178,12 @@ Required shape:
         },
       ],
     })
+    if (message.usage) {
+      usage = {
+        input_tokens: message.usage.input_tokens,
+        output_tokens: message.usage.output_tokens,
+      }
+    }
     const raw = message.content[0]
     if (raw.type === 'text') {
       const parsed = parseClaudeJsonObject(raw.text)
@@ -198,7 +214,7 @@ Required shape:
         }
 
         if (email_opening && narrative_extended) {
-          return { email_opening, narrative_extended, category_notes }
+          return { email_opening, narrative_extended, category_notes, usage }
         }
         if (email_opening || narrative_extended) {
           return {
@@ -209,6 +225,7 @@ Required shape:
                 .map(([k, v]) => `${k}: ${v}`)
                 .join('\n\n')}`,
             category_notes,
+            usage,
           }
         }
       }
@@ -224,6 +241,7 @@ Required shape:
     category_notes: Object.fromEntries(
       CATEGORY_KEYS.map((k) => [k, `Rated ${scoresFromBreakdown(breakdown, k).toFixed(1)}/10 from our automated audit.`])
     ) as Record<string, string>,
+    usage,
   }
 }
 

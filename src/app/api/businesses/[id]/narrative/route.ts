@@ -55,6 +55,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       narrative_summary: payload.email_opening,
       category_notes: payload.category_notes,
       narrative_generated_at: new Date().toISOString(),
+      narrative_last_usage: payload.usage ?? null,
     }
 
     const { error: upErr } = await supabaseAdmin
@@ -71,6 +72,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       email_opening: payload.email_opening,
       narrative_extended: payload.narrative_extended,
       category_notes: payload.category_notes,
+      usage: payload.usage ?? null,
     })
   } catch (err) {
     console.error('[narrative]', err)

@@ -124,6 +124,7 @@ export async function runScoring(cityInput: string): Promise<ScoreRunResult> {
           narrative_summary: nar.email_opening,
           category_notes: nar.category_notes,
           narrative_generated_at: new Date().toISOString(),
+          narrative_last_usage: nar.usage ?? null,
         }
       } catch (e) {
         console.warn(`  narrative generation skipped: ${(e as Error).message}`)

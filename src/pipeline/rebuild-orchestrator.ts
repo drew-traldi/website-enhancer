@@ -13,7 +13,7 @@ import 'dotenv/config'
 import { supabaseAdmin } from '@/lib/supabase'
 import { launchBrowser } from '@/lib/browser'
 import { scrapeWebsite } from './scraper'
-import { buildSite }     from './builder'
+import { buildSite, formatAuditContextForRebuild } from './builder'
 import { deployToGitHubPages, waitForPages, buildSlug } from './deployer'
 import { captureScreenshots } from './screenshot'
 
@@ -25,7 +25,7 @@ interface QueuedBusiness {
   notes: string | null
   cities: { name: string; state: string } | null
   rebuilds: Array<{ id: string }>
-  website_scores: Array<{ overall_score: number | null }>
+  website_scores: Array<{ overall_score: number | null; details: Record<string, unknown> | null }>
 }
 
 export interface RebuildResult {
@@ -48,7 +48,7 @@ export async function runRebuildPipeline(maxCount: number = 15, targetBusinessId
       id, name, website, city_id, notes,
       cities ( name, state ),
       rebuilds ( id ),
-      website_scores ( overall_score )
+      website_scores ( overall_score, details )
     `)
     .eq('status', 'queued_for_rebuild')
 
@@ -77,7 +77,9 @@ export async function runRebuildPipeline(maxCount: number = 15, targetBusinessId
   for (const biz of typed) {
     const cityName  = (biz.cities as { name: string; state: string } | null)?.name ?? ''
     const cityState = (biz.cities as { name: string; state: string } | null)?.state ?? ''
-    const score     = biz.website_scores?.[0]?.overall_score ?? 5
+    const wsRow     = biz.website_scores?.[0]
+    const score     = wsRow?.overall_score ?? 5
+    const auditContext = formatAuditContextForRebuild(wsRow?.details ?? undefined)
     const rebuildId = biz.rebuilds?.[0]?.id
 
     console.log(`\n${'─'.repeat(50)}`)
@@ -136,7 +138,8 @@ export async function runRebuildPipeline(maxCount: number = 15, targetBusinessId
         cityState,
         score,
         slug,
-        biz.notes ?? undefined
+        biz.notes ?? undefined,
+        auditContext
       )
       console.log(`  ✓ HTML generated (${Math.round(buildResult.html.length / 1024)}KB)`)
 

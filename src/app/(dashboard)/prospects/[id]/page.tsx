@@ -13,7 +13,7 @@ import {
   ArrowLeft, Globe, Phone, MapPin, Star, ExternalLink,
   Hammer, Mail, ChevronDown, ChevronUp, Save, Loader2,
   Send, UserX, CheckCircle2, AlertCircle, MailPlus,
-  FileText, RefreshCw,
+  FileText, RefreshCw, Info,
 } from 'lucide-react'
 
 interface ScoreDetails {
@@ -49,6 +49,7 @@ interface Business {
     narrative_extended: string | null
     category_notes: Record<string, string> | null
     narrative_generated_at: string | null
+    narrative_usage: { input_tokens: number; output_tokens: number } | null
   } | null
   rebuild: {
     status: string
@@ -82,6 +83,52 @@ const SCORE_WEIGHTS: Record<string, number> = {
   responsive: 20, visualEra: 20, performance: 15,
   security: 10, accessibility: 10, techStack: 10,
   contentQuality: 10, ux: 5,
+}
+
+function NarrativeUsagePopover({
+  usage,
+}: {
+  usage: { input_tokens: number; output_tokens: number }
+}) {
+  const [open, setOpen] = useState(false)
+  const total = usage.input_tokens + usage.output_tokens
+  return (
+    <div className="relative inline-flex items-center">
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label="Show Claude API token usage for the narrative call"
+      >
+        <Info className="w-3.5 h-3.5 shrink-0 opacity-80" />
+        <span className="tabular-nums">{total.toLocaleString()} tokens</span>
+      </button>
+      {open && (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-40 cursor-default"
+            aria-label="Dismiss"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className="absolute left-0 top-full z-50 mt-1.5 w-[min(100vw-2rem,240px)] rounded-md border border-border bg-card p-3 text-xs shadow-lg"
+            role="dialog"
+          >
+            <p className="font-medium text-foreground mb-2">Narrative API usage</p>
+            <p className="text-muted-foreground tabular-nums space-y-0.5">
+              <span className="block">Input: {usage.input_tokens.toLocaleString()}</span>
+              <span className="block">Output: {usage.output_tokens.toLocaleString()}</span>
+            </p>
+            <p className="text-muted-foreground/85 mt-2.5 text-[0.65rem] leading-relaxed">
+              Reported by Anthropic on the Messages API response (billed tokens for that call).
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 function ScoreRow({ label, value, weight }: { label: string; value: number; weight: number }) {
@@ -278,7 +325,11 @@ export default function ProspectDetailPage() {
   const [showBefore, setShowBefore] = useState(true)
   const [showAfter, setShowAfter] = useState(true)
   const [narrativeLoading, setNarrativeLoading] = useState(false)
-  const [narrativeMsg, setNarrativeMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [narrativeMsg, setNarrativeMsg] = useState<{
+    ok: boolean
+    text: string
+    usage?: { input_tokens: number; output_tokens: number } | null
+  } | null>(null)
   const [showCategoryNotes, setShowCategoryNotes] = useState(false)
   const [rebuilding, setRebuilding] = useState(false)
   const [rebuildError, setRebuildError] = useState<string | null>(null)
@@ -364,7 +415,11 @@ export default function ProspectDetailPage() {
       const res = await fetch(`/api/businesses/${id}/narrative`, { method: 'POST' })
       const data = await res.json()
       if (data.ok) {
-        setNarrativeMsg({ ok: true, text: 'Narrative updated. Uses one Claude call.' })
+        setNarrativeMsg({
+          ok: true,
+          text: 'Narrative updated. One Claude call.',
+          usage: data.usage ?? null,
+        })
         const r = await fetch(`/api/businesses/${id}`)
         const d = await r.json()
         setBiz(d)
@@ -405,6 +460,10 @@ export default function ProspectDetailPage() {
   const rebuild = biz.rebuild
   const outreach = biz.outreach
   const details = score?.score_details
+  const narrativeUsageDisplay =
+    narrativeMsg?.ok && narrativeMsg.usage
+      ? narrativeMsg.usage
+      : score?.narrative_usage ?? null
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -540,9 +599,10 @@ export default function ProspectDetailPage() {
                 )}
 
                 {score.narrative_generated_at && (
-                  <p className="text-xs text-muted-foreground">
-                    Generated {new Date(score.narrative_generated_at).toLocaleString()}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>Generated {new Date(score.narrative_generated_at).toLocaleString()}</span>
+                    {narrativeUsageDisplay && <NarrativeUsagePopover usage={narrativeUsageDisplay} />}
+                  </div>
                 )}
                 {score.category_notes && Object.keys(score.category_notes).length > 0 && (
                   <div>
@@ -572,7 +632,8 @@ export default function ProspectDetailPage() {
                 )}
                 <p className="text-xs text-muted-foreground">
                   Full audit uses your saved score signals — no re-scoring needed. Emails use the short opening above;
-                  screenshots are embedded for Gmail/Outlook.
+                  screenshots are embedded for Gmail/Outlook. When you run <strong className="font-medium text-foreground/80">Rebuild</strong>,
+                  the generator also receives this narrative and category notes so the demo targets the same gaps (mobile, a11y, stack, etc.).
                 </p>
               </>
             ) : (
@@ -677,7 +738,7 @@ export default function ProspectDetailPage() {
                       <p className="text-sm text-muted-foreground">
                         {rebuild?.status === 'failed'
                           ? 'Previous rebuild failed. Ready to retry.'
-                          : 'No deployed demo yet. Generate and publish the rebuilt site to GitHub Pages.'}
+                          : 'No deployed demo yet. Generate and publish the rebuilt site to GitHub Pages. The build prompt includes your audit narrative and category notes when available.'}
                       </p>
                       <Button
                         size="sm"
