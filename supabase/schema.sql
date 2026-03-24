@@ -105,8 +105,13 @@ CREATE INDEX idx_website_scores_business_id ON website_scores(business_id);
 CREATE TABLE IF NOT EXISTS rebuilds (
   id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   business_id           UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+  demo_kind             TEXT DEFAULT 'github_pages',
+  demo_slug             TEXT,
+  demo_html             TEXT,
+  demo_storage_path     TEXT,
   github_repo_url       TEXT,
   live_demo_url         TEXT,
+  proposal_url          TEXT,
   screenshot_after_url  TEXT,
   design_brief          JSONB,
   status                rebuild_status DEFAULT 'queued',
@@ -115,6 +120,7 @@ CREATE TABLE IF NOT EXISTS rebuilds (
 );
 
 CREATE INDEX idx_rebuilds_business_id ON rebuilds(business_id);
+CREATE INDEX idx_rebuilds_demo_slug ON rebuilds(demo_slug);
 
 -- ============================================================
 -- TABLE: outreach

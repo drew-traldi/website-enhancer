@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Building2, Filter, Star, Hammer, Mail, MapPin,
+  Building2, Star, Hammer, Mail, MapPin, FileText,
   Play, Loader2, CheckCircle2, AlertCircle, Zap, Sparkles,
   ChevronRight
 } from 'lucide-react'
@@ -27,6 +27,7 @@ interface Stats {
     filtered: number
     /** Has a website_scores row */
     scored: number
+    narrative_crafted: number
     queued: number
     rebuilding: number
     /** Demo deployed / past rebuild */
@@ -45,8 +46,8 @@ interface Stats {
 
 const FUNNEL_STEPS = [
   { key: 'discovered', label: 'Discovered', icon: Building2, color: '#5D3FA3', href: '/prospects' },
-  { key: 'filtered',   label: 'Filtered',   icon: Filter,    color: '#7A4EB8', href: '/prospects?passed_filter=1' },
   { key: 'scored',     label: 'Scored',     icon: Star,      color: '#3BC9B5', href: '/prospects?has_score=1&sort=overall_score&order=asc' },
+  { key: 'narrative_crafted', label: 'Narrative Crafted', icon: FileText, color: '#C7A8E4', href: '/prospects?has_narrative=1&has_score=1' },
   { key: 'rebuilt',    label: 'Rebuilt',    icon: Hammer,    color: '#4ade80', href: '/prospects?rebuilt_stage=1' },
   { key: 'emailed',    label: 'Emailed',    icon: Mail,      color: '#60a5fa', href: '/prospects?status=email_sent' },
 ]
@@ -417,7 +418,7 @@ function PageShell({ children }: { children: React.ReactNode }) {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Pipeline Overview</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Funnel counts: total in DB → passed filter → has modernity score → rebuilt demo → emailed.
+          Funnel counts: discovered → scored → narrative crafted → rebuilt demo → emailed.
           Click a card to open the matching prospect list.
         </p>
       </div>

@@ -17,7 +17,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         content_quality_score, ux_score,
         screenshot_before_url, scored_at, details
       ),
-      rebuilds ( status, live_demo_url, github_repo_url, built_at, screenshot_after_url ),
+      rebuilds (
+        status, live_demo_url, github_repo_url, built_at, screenshot_after_url,
+        demo_kind, demo_slug, proposal_url
+      ),
       outreach (
         id, status, sent_at, opened_at, clicked_at, contact_email,
         email_subject
@@ -111,6 +114,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       status:                rawRebuild.status,
       deployed_url:          rawRebuild.live_demo_url,
       repo_url:              rawRebuild.github_repo_url,
+      demo_kind:             rawRebuild.demo_kind ?? null,
+      demo_slug:             rawRebuild.demo_slug ?? null,
+      proposal_url:          rawRebuild.proposal_url ?? null,
       deployed_at:           rawRebuild.built_at,
       after_screenshot_urls: parseScreenshots(rawRebuild.screenshot_after_url),
     } : null,

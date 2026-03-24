@@ -18,6 +18,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { discoverEmail } from './email-discovery'
 import { buildEmail } from './email-builder'
 import { pickBestRebuild, parseAfterScreenshotUrl } from '@/lib/rebuild-utils'
+import { resolveAppBaseUrl } from './app-deployer'
 
 export interface OutreachResult {
   businessId: string
@@ -56,7 +57,13 @@ interface RebuiltBusiness {
     content_quality_score: number | null
     ux_score: number | null
   }>
-  rebuilds: Array<{ id: string; live_demo_url: string | null; screenshot_after_url: string | null }>
+  rebuilds: Array<{
+    id: string
+    live_demo_url: string | null
+    proposal_url: string | null
+    demo_slug: string | null
+    screenshot_after_url: string | null
+  }>
   outreach: Array<{ id: string }>
 }
 
@@ -92,7 +99,7 @@ export async function runOutreachPipeline(cityInput?: string): Promise<OutreachR
         security_score, accessibility_score, tech_stack_score,
         content_quality_score, ux_score
       ),
-      rebuilds ( id, live_demo_url, screenshot_after_url, status ),
+      rebuilds ( id, live_demo_url, proposal_url, demo_slug, screenshot_after_url, status ),
       outreach ( id )
     `)
     .eq('status', 'rebuilt')
@@ -146,7 +153,13 @@ export async function runOutreachPipeline(cityInput?: string): Promise<OutreachR
     const cityName = cityObj?.name ?? ''
     const cityState = cityObj?.state ?? ''
     const rebuild = pickBestRebuild(biz.rebuilds) as
-      | { id: string; live_demo_url: string | null; screenshot_after_url: string | null }
+      | {
+          id: string
+          live_demo_url: string | null
+          proposal_url: string | null
+          demo_slug: string | null
+          screenshot_after_url: string | null
+        }
       | null
     const score = biz.website_scores?.[0]
     const scoreDetailsJson = score?.details ?? null
@@ -211,12 +224,16 @@ export async function runOutreachPipeline(cityInput?: string): Promise<OutreachR
 
       // Step 2: Build email content
       console.log(`    [2/3] Generating email content…`)
+      const fallbackProposalUrl = `${resolveAppBaseUrl()}/proposal/${biz.id}`
+      const proposalUrl = rebuild.proposal_url
+        || fallbackProposalUrl
       const emailContent = await buildEmail({
         businessName: biz.name,
         city: cityName,
         state: cityState,
         score: score?.overall_score ?? 5,
         demoUrl: rebuild.live_demo_url,
+        proposalUrl,
         executiveName: exec.full_name,
         executiveEmail: exec.email,
         beforeScreenshotUrl: score?.screenshot_before_url ?? null,

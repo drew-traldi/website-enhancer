@@ -17,6 +17,7 @@ export async function GET() {
     { count: stillDiscovered },
     { count: passedFilter },
     { count: scoredRows },
+    { data: narrativeRows },
     { count: rebuiltStage },
     { count: queued },
     { count: rebuilding },
@@ -27,6 +28,7 @@ export async function GET() {
     supabaseAdmin.from('businesses').select('*', { count: 'exact', head: true }).eq('status', 'discovered'),
     supabaseAdmin.from('businesses').select('*', { count: 'exact', head: true }).neq('status', 'discovered'),
     supabaseAdmin.from('website_scores').select('id', { count: 'exact', head: true }),
+    supabaseAdmin.from('website_scores').select('details'),
     supabaseAdmin
       .from('businesses')
       .select('*', { count: 'exact', head: true })
@@ -44,12 +46,22 @@ export async function GET() {
       .limit(10),
   ])
 
+  const narrativeCrafted = (narrativeRows ?? []).reduce((acc, row: { details: unknown }) => {
+    const details = row.details as Record<string, unknown> | null
+    const hasOpening =
+      typeof details?.email_opening === 'string' && details.email_opening.trim().length > 0
+    const hasExtended =
+      typeof details?.narrative_extended === 'string' && details.narrative_extended.trim().length > 0
+    return hasOpening || hasExtended ? acc + 1 : acc
+  }, 0)
+
   return NextResponse.json({
     funnel: {
       total: total ?? 0,
       discovered: total ?? 0,
       filtered: passedFilter ?? 0,
       scored: scoredRows ?? 0,
+      narrative_crafted: narrativeCrafted,
       queued: queued ?? 0,
       rebuilding: rebuilding ?? 0,
       rebuilt: rebuiltStage ?? 0,

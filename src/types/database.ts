@@ -179,8 +179,13 @@ export interface WebsiteScore {
 export interface Rebuild {
   id: string
   business_id: string
+  demo_kind: 'github_pages' | 'app_hosted' | null
+  demo_slug: string | null
+  demo_html: string | null
+  demo_storage_path: string | null
   github_repo_url: string | null
   live_demo_url: string | null
+  proposal_url: string | null
   screenshot_after_url: string | null
   design_brief: Json | null
   status: 'queued' | 'building' | 'deployed' | 'failed'

@@ -91,6 +91,7 @@ export default function ProspectsPage() {
   const initialStatus = searchParams.get('status') || 'all'
   const urlPassedFilter = searchParams.get('passed_filter')
   const urlHasScore = searchParams.get('has_score')
+  const urlHasNarrative = searchParams.get('has_narrative')
   const urlRebuiltStage = searchParams.get('rebuilt_stage')
 
   const [data, setData] = useState<Page | null>(null)
@@ -116,6 +117,7 @@ export default function ProspectsPage() {
     if (status !== 'all') params.set('status', status)
     if (urlPassedFilter === '1') params.set('passed_filter', '1')
     if (urlHasScore === '1') params.set('has_score', '1')
+    if (urlHasNarrative === '1') params.set('has_narrative', '1')
     if (urlRebuiltStage === '1') params.set('rebuilt_stage', '1')
     if (sortOption === 'score_asc') {
       params.set('sort', 'overall_score')
@@ -128,12 +130,12 @@ export default function ProspectsPage() {
       .then(r => r.json())
       .then(setData)
       .finally(() => setLoading(false))
-  }, [search, status, page, sortOption, urlPassedFilter, urlHasScore, urlRebuiltStage])
+  }, [search, status, page, sortOption, urlPassedFilter, urlHasScore, urlHasNarrative, urlRebuiltStage])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   // Reset to page 1 when filters change
-  useEffect(() => { setPage(1) }, [search, status, urlPassedFilter, urlHasScore, urlRebuiltStage, sortOption])
+  useEffect(() => { setPage(1) }, [search, status, urlPassedFilter, urlHasScore, urlHasNarrative, urlRebuiltStage, sortOption])
 
   const totalPages = data ? Math.ceil(data.total / (data.per_page || 25)) : 0
 
@@ -190,10 +192,11 @@ export default function ProspectsPage() {
         </Select>
       </div>
 
-      {(urlPassedFilter === '1' || urlHasScore === '1' || urlRebuiltStage === '1') && (
+      {(urlPassedFilter === '1' || urlHasScore === '1' || urlHasNarrative === '1' || urlRebuiltStage === '1') && (
         <p className="text-xs text-muted-foreground mb-4">
           {urlPassedFilter === '1' && <span className="mr-2">Passed filter</span>}
           {urlHasScore === '1' && <span className="mr-2">Has modernity score</span>}
+          {urlHasNarrative === '1' && <span className="mr-2">Narrative crafted</span>}
           {urlRebuiltStage === '1' && <span>Rebuilt / post-demo</span>}
           <span className="text-muted-foreground/60"> — clear by opening Prospects from the nav without query params.</span>
         </p>

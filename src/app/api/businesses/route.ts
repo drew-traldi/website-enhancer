@@ -32,6 +32,7 @@ async function listSortedByScore(params: {
   status: string | null
   passedFilter: boolean
   rebuiltStage: boolean
+  hasNarrative: boolean
   search: string | null
   order: 'asc' | 'desc'
   page: number
@@ -42,6 +43,7 @@ async function listSortedByScore(params: {
     status,
     passedFilter,
     rebuiltStage,
+    hasNarrative,
     search,
     order,
     page,
@@ -53,6 +55,7 @@ async function listSortedByScore(params: {
     .select(
       `
       overall_score,
+      details,
       businesses!inner (
         id, name, address, phone, website, google_rating, google_review_count, status, discovered_at, city_id,
         cities ( name, state )
@@ -82,6 +85,10 @@ async function listSortedByScore(params: {
     ])
   }
 
+  if (hasNarrative) {
+    query = query.or('details->>email_opening.not.is.null,details->>narrative_extended.not.is.null')
+  }
+
   if (search?.trim()) {
     const q = search.trim().replace(/%/g, '\\%').replace(/,/g, '\\,')
     query = query.or(`name.ilike.%${q}%,address.ilike.%${q}%`, {
@@ -99,6 +106,7 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get('search')
   const passedFilter = searchParams.get('passed_filter')
   const hasScore = searchParams.get('has_score')
+  const hasNarrative = searchParams.get('has_narrative')
   const rebuiltStage = searchParams.get('rebuilt_stage')
   const sort = searchParams.get('sort')
   const order = searchParams.get('order') === 'desc' ? 'desc' : 'asc'
@@ -107,7 +115,7 @@ export async function GET(req: NextRequest) {
 
   const sortByScore = sort === 'overall_score'
   const requireScore =
-    sortByScore || hasScore === '1' || hasScore === 'true'
+    sortByScore || hasScore === '1' || hasScore === 'true' || hasNarrative === '1' || hasNarrative === 'true'
 
   if (sortByScore) {
     const { data, error, count } = await listSortedByScore({
@@ -115,6 +123,7 @@ export async function GET(req: NextRequest) {
       status,
       passedFilter: passedFilter === '1' || passedFilter === 'true',
       rebuiltStage: rebuiltStage === '1' || rebuiltStage === 'true',
+      hasNarrative: hasNarrative === '1' || hasNarrative === 'true',
       search: search?.trim() ?? null,
       order,
       page,
@@ -159,12 +168,12 @@ export async function GET(req: NextRequest) {
     ? `
       id, name, address, phone, website, google_rating, google_review_count, status, discovered_at,
       cities ( name, state ),
-      website_scores!inner ( overall_score )
+      website_scores!inner ( overall_score, details )
     `
     : `
       id, name, address, phone, website, google_rating, google_review_count, status, discovered_at,
       cities ( name, state ),
-      website_scores ( overall_score )
+      website_scores ( overall_score, details )
     `
 
   let query = supabaseAdmin
@@ -189,6 +198,12 @@ export async function GET(req: NextRequest) {
       'manual_required',
       'responded',
     ])
+  }
+
+  if (hasNarrative === '1' || hasNarrative === 'true') {
+    query = query.or('details->>email_opening.not.is.null,details->>narrative_extended.not.is.null', {
+      foreignTable: 'website_scores',
+    })
   }
 
   if (search?.trim()) {

@@ -16,6 +16,7 @@ import { scrapeWebsite } from './scraper'
 import { buildSite, formatAuditContextForRebuild } from './builder'
 import { deployToGitHubPages, waitForPages, buildSlug } from './deployer'
 import { captureScreenshots } from './screenshot'
+import { deployToAppHostedDemo, resolveAppBaseUrl } from './app-deployer'
 
 interface QueuedBusiness {
   id: string
@@ -40,6 +41,9 @@ export async function runRebuildPipeline(maxCount: number = 15, targetBusinessId
   console.log(`\n${'='.repeat(60)}`)
   console.log(`  Website Enhancer — Rebuild Pipeline`)
   console.log(`${'='.repeat(60)}`)
+  const deployTarget = (process.env.DEMO_DEPLOY_TARGET ?? 'app_hosted').toLowerCase()
+  const useGitHubDeploy = deployTarget === 'github_pages'
+  console.log(`  Deploy target: ${useGitHubDeploy ? 'GitHub Pages' : 'App-hosted demos'}`)
 
   // ── Load queued businesses ─────────────────────────────────────────────────
   const baseQuery = supabaseAdmin
@@ -144,8 +148,10 @@ export async function runRebuildPipeline(maxCount: number = 15, targetBusinessId
       console.log(`  ✓ HTML generated (${Math.round(buildResult.html.length / 1024)}KB)`)
 
       // ── 3. Deploy to GitHub Pages ────────────────────────────────────────
-      console.log(`\n  [3/4] Deploying to GitHub Pages…`)
-      const deploy = await deployToGitHubPages(slug, buildResult.html, biz.name)
+      console.log(`\n  [3/4] Deploying demo…`)
+      const deploy = useGitHubDeploy
+        ? await deployToGitHubPages(slug, buildResult.html, biz.name)
+        : await deployToAppHostedDemo(biz.id, slug, buildResult.html)
 
       if (!deploy.deployed) {
         throw new Error(`Deploy failed: ${deploy.error}`)
@@ -154,7 +160,9 @@ export async function runRebuildPipeline(maxCount: number = 15, targetBusinessId
 
       // ── 4. Take after-screenshots (after Pages goes live) ────────────────
       console.log(`\n  [4/4] Taking after-screenshots…`)
-      const isLive = await waitForPages(deploy.pagesUrl, 120_000)
+      const isLive = useGitHubDeploy
+        ? await waitForPages(deploy.pagesUrl, 120_000)
+        : true
 
       let afterUrls: string[] = []
       if (isLive) {
@@ -174,28 +182,22 @@ export async function runRebuildPipeline(maxCount: number = 15, targetBusinessId
       // ── 5. Save results to DB ────────────────────────────────────────────
       const afterUrlStr = afterUrls.length > 0 ? JSON.stringify(afterUrls) : null
 
-      if (rebuildId) {
-        await supabaseAdmin
-          .from('rebuilds')
-          .update({
-            status:              'deployed',
-            live_demo_url:       deploy.pagesUrl,
-            github_repo_url:     deploy.repoUrl,
-            screenshot_after_url: afterUrlStr,
-            built_at:            new Date().toISOString(),
-          })
-          .eq('id', rebuildId)
-      } else {
-        await supabaseAdmin
-          .from('rebuilds')
-          .insert({
-            business_id:         biz.id,
-            status:              'deployed',
-            live_demo_url:       deploy.pagesUrl,
-            github_repo_url:     deploy.repoUrl,
-            screenshot_after_url: afterUrlStr,
-            built_at:            new Date().toISOString(),
-          })
+      const { error: rebuildSaveErr } = await supabaseAdmin
+        .from('rebuilds')
+        .upsert({
+          business_id:         biz.id,
+          status:              'deployed',
+          demo_kind:           useGitHubDeploy ? 'github_pages' : 'app_hosted',
+          demo_slug:           slug,
+          live_demo_url:       deploy.pagesUrl,
+          proposal_url:        'proposalUrl' in deploy ? deploy.proposalUrl : `${resolveAppBaseUrl()}/proposal/${biz.id}`,
+          github_repo_url:     'repoUrl' in deploy ? deploy.repoUrl : null,
+          screenshot_after_url: afterUrlStr,
+          built_at:            new Date().toISOString(),
+        }, { onConflict: 'business_id' })
+
+      if (rebuildSaveErr) {
+        throw new Error(`Failed to persist rebuild row: ${rebuildSaveErr.message}`)
       }
 
       await supabaseAdmin

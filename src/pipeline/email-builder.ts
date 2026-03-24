@@ -49,6 +49,7 @@ export interface EmailContext {
   city:                string
   state:               string
   score:               number
+  proposalUrl?:        string
   demoUrl:             string
   executiveName:       string
   executiveEmail:      string
@@ -216,10 +217,13 @@ function fillTemplate(
   modernityNarrative: string
 ): string {
   const greeting = ownerName ? ownerName : ''
+  const proposalUrl = ctx.proposalUrl ?? ctx.demoUrl
 
   let body = template
     .replace(/\{\{business_name\}\}/g,                 ctx.businessName)
-    .replace(/\{\{demo_url\}\}/g,                      ctx.demoUrl)
+    .replace(/\{\{demo_url\}\}/g,                      proposalUrl)
+    .replace(/\{\{proposal_url\}\}/g,                  proposalUrl)
+    .replace(/\{\{raw_demo_url\}\}/g,                  ctx.demoUrl)
     .replace(/\{\{executive_name\}\}/g,                ctx.executiveName)
     .replace(/\{\{score\}\}/g,                         ctx.score.toFixed(1))
     .replace(/\{\{city\}\}/g,                          ctx.city)
@@ -309,6 +313,7 @@ function buildHtmlEmail(
   afterSrc: string | null
 ): string {
   const greeting = ownerName ? `Hi ${ownerName},` : 'Hello,'
+  const primaryUrl = ctx.proposalUrl ?? ctx.demoUrl
 
   const escapedNarrative = modernityNarrative
     .replace(/&/g, '&amp;')
@@ -367,12 +372,16 @@ function buildHtmlEmail(
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;">
     <tr>
       <td align="center">
-        <a href="${ctx.demoUrl}" style="display:inline-block;background:linear-gradient(135deg,#5D3FA3,#3BC9B5);color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:15px;letter-spacing:0.3px;">
-          👉 View Your Free Demo
+        <a href="${primaryUrl}" style="display:inline-block;background:linear-gradient(135deg,#5D3FA3,#3BC9B5);color:#ffffff;text-decoration:none;padding:14px 36px;border-radius:8px;font-weight:700;font-size:15px;letter-spacing:0.3px;">
+          👉 View Your Website Story
         </a>
       </td>
     </tr>
   </table>
+
+  <p style="margin:0 0 18px 0;line-height:1.6;font-size:13px;color:#6b7280;text-align:center;">
+    Prefer the direct preview? <a href="${ctx.demoUrl}" style="color:#374151;">Open the raw interactive demo</a>
+  </p>
 
   ${screenshotSection}
 
@@ -431,7 +440,8 @@ My name is {{executive_name}} from HAI Custom Solutions — we use people-center
 
 We took a look at {{business_name}}'s site and went ahead and built you a free, fully functional modern demo — no strings attached.
 
-👉 View your free demo: {{demo_url}}
+👉 View your website story: {{proposal_url}}
+Raw interactive demo: {{raw_demo_url}}
 
 Here's the thing — this demo can be yours. We offer a straightforward one-time build fee and an optional support plan starting at just $25/month. No long-term contracts, no surprises.
 

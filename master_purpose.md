@@ -13,7 +13,7 @@ The philosophy: *"AI empowering people, not replacing them. Human creativity pai
 ### The Pipeline (5 Stages)
 
 ```
-DISCOVER → FILTER → SCORE → REBUILD → OUTREACH
+DISCOVER → FILTER → SCORE(+NARRATIVE) → REBUILD → OUTREACH
 ```
 
 | Stage | Input | Output | Key Tech |
@@ -21,7 +21,7 @@ DISCOVER → FILTER → SCORE → REBUILD → OUTREACH
 | **Discover** | City name (e.g. "Roswell, GA") | Raw list of local businesses | Google Places API (Nearby/Text Search) |
 | **Filter** | Raw business list | Qualified prospects (non-chains, active, 2.5+ stars) | Chain detection algorithm, activity scoring |
 | **Score** | Qualified prospect websites | Modernity score 1-10 per site | Puppeteer/Playwright, Lighthouse, custom heuristics |
-| **Rebuild** | Lowest-scoring 15 websites | Modern rebuilt sites + before/after screenshots | Cursor Agent (auto mode), Tailwind CSS, static HTML |
+| **Rebuild** | Lowest-scoring 15 websites | Modern rebuilt demos + narrative proposal pages + before/after screenshots | Cursor Agent (auto mode), Tailwind CSS, app-hosted dynamic demo routes |
 | **Outreach** | Rebuilt sites + business contact info | Personalized sales emails with live demo links | SendGrid API, email template engine |
 
 ### Batch Logic
@@ -139,9 +139,12 @@ DISCOVER → FILTER → SCORE → REBUILD → OUTREACH
 **Goal:** Create a modern, visually stunning version of each prospect's website.
 
 **Approach:**
-- **Stack:** Static HTML + Tailwind CSS + vanilla JS (fast, cheap to host, visually creative)
-- **Why not Next.js for demos:** Cost. 15 Vercel deployments per city run is expensive. Static sites on GitHub Pages = free. If/when they become a client, we migrate to Next.js on Vercel as a paid service.
-- **Hosting:** GitHub Pages (free, reliable, programmatic deployment via GitHub API)
+- **Stack:** Static HTML + Tailwind CSS + vanilla JS generated per business; stored and served by the main Next.js app
+- **Hosting (default):** Single Vercel deployment with dynamic routes:
+  - `/demos/[slug]` → raw interactive rebuilt demo
+  - `/proposal/[businessId]` → narrative sales story page with before/after and CTA
+- **Why this approach:** Avoids creating/maintaining large numbers of GitHub repos/pages while keeping every demo instantly shareable.
+- **Legacy fallback:** Existing GitHub Pages demos remain supported for transition only.
 
 **Rebuild Process (per business):**
 1. **Scrape original site** — Extract text content, images, color themes, logo, navigation structure
@@ -155,20 +158,18 @@ DISCOVER → FILTER → SCORE → REBUILD → OUTREACH
 4. **HAI Watermark/Banner** — Every rebuilt site includes:
    - A persistent banner (top or bottom): *"This site redesign was created by HAI Custom Solutions — [Contact Us](https://www.haiconsultingservices.com/contact)"*
    - The banner should be tasteful, on-brand, and not obtrusive
-5. **Deploy to GitHub Pages** — Push to a repo under the HAI org, enable Pages
-6. **Capture screenshot** — Take full-page screenshot of the rebuilt landing page (for the "after" in the email)
+5. **Publish to app-hosted demo routes** — Save generated HTML and metadata in database, expose via `/demos/[slug]`
+6. **Generate narrative proposal page** — Build `/proposal/[businessId]` that frames the story with score findings + before/after proof
+7. **Capture screenshot** — Take full-page screenshot of the rebuilt landing page (for the "after" in the email)
 
-**File Structure Per Rebuild:**
+**Stored Per Rebuild (database-backed):**
 ```
-hai-demos/[business-slug]/
-├── index.html
-├── styles.css (or inline Tailwind)
-├── script.js
-├── assets/
-│   ├── logo.png
-│   ├── hero.jpg
-│   └── ...
-└── README.md
+rebuilds row:
+├── demo_slug
+├── demo_html (or demo_storage_path)
+├── live_demo_url (/demos/[slug])
+├── proposal_url (/proposal/[businessId])
+└── screenshot_after_url
 ```
 
 ### Stage 5: OUTREACH — Personalized Sales Email
@@ -193,7 +194,8 @@ hai-demos/[business-slug]/
   - The pitch: "We noticed your website could use a refresh — so we built you one"
   - **Before screenshot** (original site landing page)
   - **After screenshot** (rebuilt site landing page)
-  - **Live demo link** (GitHub Pages URL)
+  - **Narrative proposal link** (primary CTA)
+  - **Raw interactive demo link** (secondary CTA)
   - CTA: "Let's chat about making this yours" → links to https://www.haiconsultingservices.com/contact
   - HAI Executive's signature block
 - **Sent via:** SendGrid API (for delivery analytics — opens, clicks, bounces)
@@ -224,7 +226,7 @@ Authentication is code-based (D/S/E/I + a shared PIN), not full OAuth. Simple an
 
 **1. Pipeline Overview (Home)**
 - City selector / search
-- Pipeline funnel visualization: Discovered → Filtered → Scored → Rebuilt → Emailed
+- Pipeline funnel visualization: Discovered → Scored → Narrative Crafted → Rebuilt → Emailed
 - Quick stats: Total prospects, avg modernity score, emails sent, open rate, click rate
 
 **2. Discovery Manager**
@@ -242,7 +244,7 @@ Authentication is code-based (D/S/E/I + a shared PIN), not full OAuth. Simple an
 - Business info card (name, address, phone, rating, reviews, website)
 - Modernity score breakdown (radar chart showing each category)
 - Before/After screenshot comparison (side by side)
-- Live demo link
+- Narrative proposal link + live demo link
 - Email status (sent, opened, clicked, replied)
 - Contact info found + ability to manually add email
 - Action buttons: Send Email, Resend, Mark as Manual, Assign Executive, Skip
@@ -313,8 +315,13 @@ Authentication is code-based (D/S/E/I + a shared PIN), not full OAuth. Simple an
 **rebuilds**
 - `id` (UUID, PK)
 - `business_id` (FK → businesses)
+- `demo_kind` (text) — `app_hosted` or `github_pages` (legacy fallback)
+- `demo_slug` (text) — route slug for `/demos/[slug]`
+- `demo_html` (text, nullable) — generated HTML payload for app-hosted demos
+- `demo_storage_path` (text, nullable) — optional storage pointer if payload moved out of row
 - `github_repo_url` (text)
-- `live_demo_url` (text) — GitHub Pages URL
+- `live_demo_url` (text) — live demo URL (default `/demos/[slug]`)
+- `proposal_url` (text) — narrative page URL (`/proposal/[businessId]`)
 - `screenshot_after_url` (text)
 - `design_brief` (jsonb) — AI-generated design direction
 - `status` (enum: queued, building, deployed, failed)
@@ -358,7 +365,7 @@ Authentication is code-based (D/S/E/I + a shared PIN), not full OAuth. Simple an
 | Screenshot Capture | Puppeteer | Before/after comparisons |
 | Screenshot Storage | Supabase Storage or Cloudflare R2 | Cheap object storage |
 | Website Rebuild | Cursor Agent (auto mode) | AI-powered code generation |
-| Demo Hosting | GitHub Pages | Free, reliable, programmatic via API |
+| Demo Hosting | Next.js dynamic demo routes on Vercel + Supabase | One deployment, no repo sprawl, scalable |
 | Email Sending | SendGrid | Delivery analytics, templates, reliable |
 | Email Discovery | Custom scraper (Cheerio/Puppeteer) | Extract contact emails from websites |
 | Auth | Simple PIN-based (4 users) | Internal tool, low complexity |
@@ -386,7 +393,7 @@ Authentication is code-based (D/S/E/I + a shared PIN), not full OAuth. Simple an
 6. **HAI branding on every demo.** Contact Us → https://www.haiconsultingservices.com/contact
 7. **Executive assignment is manual** (via dashboard) unless auto-assigned by territory in a future version.
 8. **SendGrid for all automated sends.** Track everything.
-9. **Screenshots are gold.** Before/after comparison is the core sales collateral.
+9. **Screenshots + narrative are gold.** Before/after proof plus a guided proposal story is the core sales collateral.
 10. **Star ratings stored always.** Even if a business scores high on modernity, their Google data is valuable for future reference.
 
 ---
@@ -417,7 +424,7 @@ Puppeteer-based site analysis, Lighthouse integration, custom modernity heuristi
 Next.js dashboard with auth, pipeline visualization, prospect management, executive assignment, city management.
 
 ### Phase 4: Rebuild Pipeline & Deployment
-Cursor Agent integration, static site generation, GitHub Pages deployment, before/after screenshot workflow.
+Cursor Agent integration, static site generation, app-hosted demo/proposal routing, before/after screenshot workflow.
 
 ### Phase 5: Outreach Engine
 Email discovery, SendGrid integration, email template system, manual outreach workflow, analytics tracking.
